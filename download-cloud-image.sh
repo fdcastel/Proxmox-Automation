@@ -1,0 +1,79 @@
+#!/bin/bash
+
+
+#
+# Constants
+#
+
+ISO_FOLDER='/var/lib/vz/template/iso/'
+
+
+#
+# Functions
+#
+
+function echo_err() { 
+    >&2 echo "$@"
+}
+
+function show_usage() {
+    if [ -n "$1" ]; then
+        tput setaf 1
+        echo_err "Error: $1";
+        tput sgr0
+    fi
+    echo_err
+    echo_err "Usage: $0 <url> [OPTIONS]"
+    echo_err '    <url>                Url of image to download.'
+    echo_err "    --no-clobber, -nc    Doesn't overwrite an existing image."
+    echo_err
+    exit 1
+}
+
+
+#
+# Main
+#
+
+# Parse arguments
+URL="$1"
+NO_CLOBBER=0
+shift
+
+while [[ "$#" > 0 ]]; do case $1 in
+    -nc|--no-clobber) NO_CLOBBER=1;shift;;
+    *) show_usage "Invalid argument: $1"; shift; shift;;
+esac; done
+
+if [ -z "$URL" ]; then show_usage "You must inform an url."; fi;
+
+# Extract the base file name from a URL -- https://unix.stackexchange.com/a/64435
+URL_FILE="${URL##*/}"
+
+LOCAL_FILE="$ISO_FOLDER/$URL_FILE"
+
+UNCOMPRESSED_LOCAL_FILE="$LOCAL_FILE"
+case $LOCAL_FILE in
+  *"gz"|*"xz"|*"zip") UNCOMPRESSED_LOCAL_FILE=${LOCAL_FILE%.*};;
+esac
+
+if [ $NO_CLOBBER -eq 1 ] && [ -f "$UNCOMPRESSED_LOCAL_FILE" ]; then
+    echo $UNCOMPRESSED_LOCAL_FILE
+    exit 0
+fi
+
+wget -O $LOCAL_FILE $URL --show-progress
+if [ $? -ne 0 ]; then
+    echo_err "Error downloading '$URL'."
+    exit 1
+fi
+
+# Uncompress file (if needed)
+case $LOCAL_FILE in
+  *"gz") echo_err "Extracting (.gz)..."; gunzip -d $LOCAL_FILE -f -v;;
+  *"xz") echo_err "Extracting (.xz)..."; xz -d $LOCAL_FILE -f -v;;
+  *"zip") echo_err "Extracting (.zip)..."; unzip -o $LOCAL_FILE -d $ISO_FOLDER 1>&2 && rm $LOCAL_FILE;;    # unzip outputs info to stdout
+esac
+
+# Return the full path of downloaded file
+echo $UNCOMPRESSED_LOCAL_FILE
