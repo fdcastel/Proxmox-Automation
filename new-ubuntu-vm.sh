@@ -25,7 +25,7 @@ function show_usage() {
     echo '    --image             Path to image file.'
     echo '    --name              A name for the VM.'
     echo '    --cipassword        Password to assign the user. Using this is generally not recommended. Use ssh keys instead.'
-    echo '    --sshkeys           Setup public SSH keys (one key per line, OpenSSH format).'
+    echo '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo
     echo 'Additional options:'
     echo "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
