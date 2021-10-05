@@ -133,8 +133,15 @@ EOF
 
 # Install docker
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    # Source: https://docs.docker.com/engine/install/ubuntu/
     cat | pct exec $CT_ID -- bash <<'EOF'
+        # Wait for network -- Source: https://stackoverflow.com/a/24963234
+        WAIT_FOR_HOST=archive.ubuntu.com
+        while ! (ping -c 1 -W 1 $WAIT_FOR_HOST > /dev/null 2>&1); do
+            echo "Waiting for $WAIT_FOR_HOST - network interface might be down..."
+            sleep 1
+        done
+
+        # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
         apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
