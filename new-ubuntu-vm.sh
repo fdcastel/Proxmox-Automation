@@ -83,7 +83,8 @@ qm create $VM_ID --name $VM_NAME \
     --cores $VM_CORES \
     --numa 1 \
     --memory $VM_MEMORY \
-    --balloon $VM_BALLOON
+    --balloon $VM_BALLOON \
+    --onboot 1
 
 # Disk 0: EFI
 pvesm alloc local-zfs $VM_ID vm-$VM_ID-efi 1M

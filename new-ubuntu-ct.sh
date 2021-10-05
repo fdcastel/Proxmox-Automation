@@ -112,11 +112,13 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --net0 name=$CT_INTERFACE_NAME,bridge=vmbr0,ip=dhcp \
     --cores $CT_CORES \
     --memory $CT_MEMORY \
+    --onboot 1 \
     $DOCKER_ARGS \
     $SSH_KEYS_ARGS
 
 # Cannot set timezone in 'pct create' (Bug?)
 #   Causes "Insecure dependency in symlink while running with -T switch at /usr/share/perl5/PVE/LXC/Setup/Base.pm"
+#   pveversion: pve-manager/7.0-11/63d82f4e (running kernel: 5.11.22-4-pve)
 pct set $CT_ID --timezone host
 
 # Start container
