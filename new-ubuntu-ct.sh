@@ -33,6 +33,7 @@ function show_usage() {
     echo "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
     echo '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo '    --install-docker    Install docker and docker-compose.'
+    echo '    --privileged        Makes the container run as privileged user (default = unprivileged).'
     echo
     exit 1
 }
@@ -47,6 +48,7 @@ CT_ROOTFS=$DEFAULT_ROOTFS
 CT_CORES=$DEFAULT_CORES
 CT_MEMORY=$DEFAULT_MEMORY
 CT_INSTALL_DOCKER=0
+CT_UNPRIVILEGED=1
 
 CT_ID="$1"
 shift
@@ -61,6 +63,7 @@ while [[ "$#" > 0 ]]; do case $1 in
     --rootfs) CT_ROOTFS="$2";shift;shift;;
     --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift;shift;;
     --install-docker) CT_INSTALL_DOCKER=1;shift;;
+    --privileged) CT_UNPRIVILEGED=0;shift;;
 
     *) show_usage "Invalid argument: $1"; shift; shift;;
 esac; done
@@ -98,7 +101,7 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     rmdir $TMP_MOUNT
 
     # Extra arguments required for Docker
-    DOCKER_ARGS="--unprivileged 1 --features keyctl=1,nesting=1 --mp0 $DOCKER_DEV,mp=/var/lib/docker,backup=0"
+    DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 $DOCKER_DEV,mp=/var/lib/docker,backup=0"
 fi;
 
 # Create CT
