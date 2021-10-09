@@ -35,6 +35,7 @@ esac; done
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 
 # Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/easy_way_to_run_docker_in_an_unprivileged_lxc_on/
+# Related: https://github.com/moby/moby/issues/31247
 
 # Create a sparse zvol for docker configuration
 DOCKER_VOL="rpool/data/subvol-$CT_ID-docker"
