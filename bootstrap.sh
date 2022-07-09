@@ -12,6 +12,10 @@ main () {
         return 1
     fi
 
+    # Install unzip
+    apt-get update
+    apt-get -y install unzip
+
     unzip -q $ZIP_FILE -d $TEMP_FOLDER
     if [ $? -eq 127 ]; then
         echo "Command 'unzip' not found. Install it with 'apt-get install unzip -y'."
