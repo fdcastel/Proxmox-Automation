@@ -152,14 +152,12 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
         apt update -y
         apt install -y docker-ce docker-ce-cli containerd.io docker-compose
 EOF
-fi
 
-# Assert that storage driver is 'overlay2'
-pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
-if [ $? -eq 0 ]; then
-   echo 'All done!'
-else
-    tput setaf 1
-    echo 'ERROR: Docker storage driver is not "overlay2".'
-    tput sgr0
+    # Assert that storage driver is 'overlay2'
+    pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
+    if [ $? -ne 0 ]; then
+        tput setaf 1
+        echo 'ERROR: Docker storage driver is not "overlay2".'
+        tput sgr0
+    fi
 fi
