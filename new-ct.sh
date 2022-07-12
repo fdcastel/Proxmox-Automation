@@ -6,9 +6,10 @@ set -e    # Exit when any command fails
 #
 # Default values
 #
-DEFAULT_ROOTFS='local-zfs:8'
+DEFAULT_OSTYPE='ubuntu'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
+DEFAULT_ROOTFS='local-zfs:8'
 
 
 #
@@ -28,6 +29,7 @@ function show_usage() {
     echo '    --password          Sets root password inside container.'
     echo
     echo 'Additional options:'
+    echo "    --ostype            OS type (default = $DEFAULT_OSTYPE)."
     echo "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
     echo "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
     echo "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
@@ -44,9 +46,10 @@ function show_usage() {
 #
 
 # Parse arguments
-CT_ROOTFS=$DEFAULT_ROOTFS
+CT_OSTYPE=$DEFAULT_OSTYPE
 CT_CORES=$DEFAULT_CORES
 CT_MEMORY=$DEFAULT_MEMORY
+CT_ROOTFS=$DEFAULT_ROOTFS
 CT_INSTALL_DOCKER=0
 CT_UNPRIVILEGED=1
 
@@ -58,6 +61,7 @@ while [[ "$#" > 0 ]]; do case $1 in
     --hostname) CT_HOSTNAME="$2"; shift;shift;;
     --password) CT_PASSWORD="$2"; shift;shift;;
 
+    --ostype) CT_OSTYPE="$2"; shift;shift;;
     --cores) CT_CORES="$2"; shift;shift;;
     --memory) CT_MEMORY="$2";shift;shift;;
     --rootfs) CT_ROOTFS="$2";shift;shift;;
@@ -72,6 +76,12 @@ if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_OSTEMPLATE" ]; then show_usage "You must inform an OS template (--ostemplate)."; fi;
 if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostname)."; fi;
 if [ -z "$CT_PASSWORD" ]; then show_usage "You must inform a password (--password)."; fi;
+
+if [ $CT_INSTALL_DOCKER -eq 1 ]; then 
+    if [ "$CT_OSTYPE" != 'ubuntu' ] && [ "$CT_OSTYPE" != 'debian' ] && [ "$CT_OSTYPE" != 'alpine' ]; then
+        show_usage "Don't know how to install docker on '$OSTYPE'."; 
+    fi
+fi;
 
 if [ -n "$CT_SSHKEYS" ]; then 
     SSH_KEYS_ARGS="--ssh-public-keys $CT_SSHKEYS"
@@ -108,7 +118,7 @@ fi;
 # Create CT
 CT_INTERFACE_NAME='eth0'
 pct create $CT_ID $CT_OSTEMPLATE \
-    --ostype ubuntu \
+    --ostype $CT_OSTYPE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
     --password $CT_PASSWORD \
@@ -129,7 +139,7 @@ pct set $CT_ID --timezone host
 pct start $CT_ID
 
 # Update /etc/issue
-cat | pct exec $CT_ID -- bash -c 'cat > /etc/issue' <<EOF
+cat | pct exec $CT_ID -- sh -c 'cat > /etc/issue' <<EOF
 \S{PRETTY_NAME} \n \l
 
 $CT_INTERFACE_NAME: \4{$CT_INTERFACE_NAME}
@@ -137,21 +147,50 @@ EOF
 
 # Install docker
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    cat | pct exec $CT_ID -- bash <<'EOF'
-        # Wait for network -- Source: https://stackoverflow.com/a/24963234
-        WAIT_FOR_HOST=archive.ubuntu.com
+    # Wait for network -- Source: https://stackoverflow.com/a/24963234
+    cat | pct exec $CT_ID -- sh <<'EOF'
+        WAIT_FOR_HOST=google.com
         while ! (ping -c 1 -W 1 $WAIT_FOR_HOST > /dev/null 2>&1); do
             echo "Waiting for $WAIT_FOR_HOST - network interface might be down..."
             sleep 1
         done
-
-        # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
-        apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
-        apt update -y
-        apt install -y docker-ce docker-ce-cli containerd.io docker-compose
 EOF
+
+    if [ "$CT_OSTYPE" == 'ubuntu' ]; then
+        cat | pct exec $CT_ID -- sh <<'EOF'
+            # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg lsb-release
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update -y
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+EOF
+    fi
+
+    if [ "$CT_OSTYPE" == 'debian' ]; then
+        cat | pct exec $CT_ID -- sh <<'EOF'
+            # Install docker -- Source: https://docs.docker.com/engine/install/debian/
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg lsb-release
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update -y
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+EOF
+    fi
+
+    if [ "$CT_OSTYPE" == 'alpine' ]; then
+        cat | pct exec $CT_ID -- sh <<'EOF'
+            # Install docker -- Source: https://wiki.alpinelinux.org/wiki/Docker
+            apk update
+            apk add docker docker-compose
+            rc-update add docker boot
+            service docker start
+EOF
+    fi
 
     # Assert that storage driver is 'overlay2'
     pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
