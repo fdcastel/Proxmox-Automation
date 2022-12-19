@@ -90,12 +90,15 @@ fi;
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     # Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/easy_way_to_run_docker_in_an_unprivileged_lxc_on/
     # Related: https://github.com/moby/moby/issues/31247
+    
+    # Name must be in this format otherwise snapshots and migration will not work. -- https://github.com/nextcloud/all-in-one/discussions/1490
+    DOCKER_VOL="vm-$CT_ID-disk-1"
 
     # Create a sparse zvol for docker configuration
-    DOCKER_VOL="rpool/data/subvol-$CT_ID-docker"
-    DOCKER_DEV="/dev/zvol/$DOCKER_VOL"
-    zfs destroy $DOCKER_VOL 2> /dev/null || true      # Ignore error if does not exists
-    zfs create -s -V 32G $DOCKER_VOL
+    DOCKER_RPOOL="rpool/data/$DOCKER_VOL"
+    DOCKER_DEV="/dev/zvol/$DOCKER_RPOOL"
+    zfs destroy $DOCKER_RPOOL 2> /dev/null || true      # Ignore error if does not exists
+    zfs create -s -V 32G $DOCKER_RPOOL
 
     # Wait for it... (mkfs.ext4 fails without this!)
     sleep 1
@@ -104,7 +107,7 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     mkfs.ext4 $DOCKER_DEV
 
     # Set permissions
-    TMP_MOUNT="/tmp/subvol-$CT_ID-docker"
+    TMP_MOUNT="/tmp/$DOCKER_VOL"
     mkdir -p $TMP_MOUNT
     mount $DOCKER_DEV $TMP_MOUNT
     chown -R 100000:100000 $TMP_MOUNT
@@ -112,7 +115,7 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     rmdir $TMP_MOUNT
 
     # Extra arguments required for Docker
-    DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 $DOCKER_DEV,mp=/var/lib/docker,backup=0"
+    DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
 fi;
 
 # Create CT
