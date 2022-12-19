@@ -100,6 +100,9 @@ fi;
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     ./new-ct-docker-volume.sh $CT_ID
 
+    # Name must be in this format otherwise snapshots and migration will not work. -- https://github.com/nextcloud/all-in-one/discussions/1490
+    DOCKER_VOL="vm-$CT_ID-disk-1"
+
     # Extra arguments required for Docker
     DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
 fi;
