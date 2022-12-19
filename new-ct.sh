@@ -4,8 +4,9 @@ set -e    # Exit when any command fails
 
 
 #
-# Default values
+# Constants
 #
+
 DEFAULT_OSTYPE='ubuntu'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
@@ -13,30 +14,36 @@ DEFAULT_ROOTFS='local-zfs:8'
 
 
 #
-# Usage
+# Functions
 #
+
+function echo_err() { 
+    >&2 echo "$@"
+}
+
 function show_usage() {
     if [ -n "$1" ]; then
         tput setaf 1
         echo "Error: $1";
         tput sgr0
     fi
-    echo
-    echo "Usage: $0 <ctid> --ostemplate <file> --hostname <name> --password <password> [OPTIONS]"
-    echo '    <ctid>              Proxmox unique ID of the CT.'
-    echo '    --ostemplate        The OS template or backup file.'
-    echo '    --hostname          Set a host name for the container.'
-    echo '    --password          Sets root password inside container.'
-    echo
-    echo 'Additional options:'
-    echo "    --ostype            OS type (default = $DEFAULT_OSTYPE)."
-    echo "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
-    echo "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
-    echo "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
-    echo '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
-    echo '    --install-docker    Install docker and docker-compose.'
-    echo '    --privileged        Makes the container run as privileged user (default = unprivileged).'
-    echo
+    echo_err
+    echo_err "Usage: $0 <ctid> --ostemplate <file> --hostname <name> --password <password> [OPTIONS]"
+    echo_err '    <ctid>              Proxmox unique ID of the CT.'
+    echo_err '    --ostemplate        The OS template or backup file.'
+    echo_err '    --hostname          Set a host name for the container.'
+    echo_err '    --password          Sets root password inside container.'
+    echo_err
+    echo_err 'Additional options:'
+    echo_err "    --ostype            OS type (default = $DEFAULT_OSTYPE)."
+    echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
+    echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
+    echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
+    echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
+    echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
+    echo_err '    --install-docker    Install docker and docker-compose.'
+    echo_err "    --help, -h          Display this help message."
+    echo_err
     exit 1
 }
 
@@ -45,7 +52,6 @@ function show_usage() {
 # Main
 #
 
-# Parse arguments
 CT_OSTYPE=$DEFAULT_OSTYPE
 CT_CORES=$DEFAULT_CORES
 CT_MEMORY=$DEFAULT_MEMORY
@@ -53,25 +59,29 @@ CT_ROOTFS=$DEFAULT_ROOTFS
 CT_INSTALL_DOCKER=0
 CT_UNPRIVILEGED=1
 
-CT_ID="$1"
-shift
+# Parse arguments -- https://stackoverflow.com/a/14203146/33244
+POSITIONAL_ARGS=()
+while [[ "$#" -gt 0 ]]; do case $1 in
+    --ostemplate) CT_OSTEMPLATE="$2"; shift; shift;;
+    --hostname) CT_HOSTNAME="$2"; shift; shift;;
+    --password) CT_PASSWORD="$2"; shift; shift;;
 
-while [[ "$#" > 0 ]]; do case $1 in
-    --ostemplate) CT_OSTEMPLATE="$2"; shift;shift;;
-    --hostname) CT_HOSTNAME="$2"; shift;shift;;
-    --password) CT_PASSWORD="$2"; shift;shift;;
+    --ostype) CT_OSTYPE="$2"; shift; shift;;
+    --cores) CT_CORES="$2"; shift; shift;;
+    --memory) CT_MEMORY="$2"; shift; shift;;
+    --rootfs) CT_ROOTFS="$2"; shift; shift;;
+    --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift; shift;;
+    
+    --privileged) CT_UNPRIVILEGED=0; shift;;
+    --install-docker) CT_INSTALL_DOCKER=1; shift;;
 
-    --ostype) CT_OSTYPE="$2"; shift;shift;;
-    --cores) CT_CORES="$2"; shift;shift;;
-    --memory) CT_MEMORY="$2";shift;shift;;
-    --rootfs) CT_ROOTFS="$2";shift;shift;;
-    --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift;shift;;
-    --install-docker) CT_INSTALL_DOCKER=1;shift;;
-    --privileged) CT_UNPRIVILEGED=0;shift;;
-
-    *) show_usage "Invalid argument: $1"; shift; shift;;
+    -h|--help) show_usage;;
+    -*|--*) show_usage "Unknown option: $1";;
+    *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
+CT_ID="$1"
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_OSTEMPLATE" ]; then show_usage "You must inform an OS template (--ostemplate)."; fi;
 if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostname)."; fi;
@@ -88,31 +98,7 @@ if [ -n "$CT_SSHKEYS" ]; then
 fi;
 
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    # Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/easy_way_to_run_docker_in_an_unprivileged_lxc_on/
-    # Related: https://github.com/moby/moby/issues/31247
-    
-    # Name must be in this format otherwise snapshots and migration will not work. -- https://github.com/nextcloud/all-in-one/discussions/1490
-    DOCKER_VOL="vm-$CT_ID-disk-1"
-
-    # Create a sparse zvol for docker configuration
-    DOCKER_RPOOL="rpool/data/$DOCKER_VOL"
-    DOCKER_DEV="/dev/zvol/$DOCKER_RPOOL"
-    zfs destroy $DOCKER_RPOOL 2> /dev/null || true      # Ignore error if does not exists
-    zfs create -s -V 32G $DOCKER_RPOOL
-
-    # Wait for it... (mkfs.ext4 fails without this!)
-    sleep 1
-
-    # Format it as ext4
-    mkfs.ext4 $DOCKER_DEV
-
-    # Set permissions
-    TMP_MOUNT="/tmp/$DOCKER_VOL"
-    mkdir -p $TMP_MOUNT
-    mount $DOCKER_DEV $TMP_MOUNT
-    chown -R 100000:100000 $TMP_MOUNT
-    umount $TMP_MOUNT
-    rmdir $TMP_MOUNT
+    ./new-ct-docker-volume.sh $CT_ID
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
@@ -199,7 +185,7 @@ EOF
     pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
     if [ $? -ne 0 ]; then
         tput setaf 1
-        echo 'ERROR: Docker storage driver is not "overlay2".'
+        echo_err 'WARNING: Docker storage driver is not "overlay2".'
         tput sgr0
     fi
 fi

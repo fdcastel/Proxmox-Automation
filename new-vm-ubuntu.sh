@@ -1,70 +1,78 @@
 #!/bin/bash
 
+set -e    # Exit when any command fails
 
 
 #
-# Default values
+# Constants
 #
+
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
 
 
+#
+# Functions
+#
 
-#
-# Usage
-#
+function echo_err() { 
+    >&2 echo "$@"
+}
+
 function show_usage() {
     if [ -n "$1" ]; then
         tput setaf 1
         echo "Error: $1";
         tput sgr0
     fi
-    echo
-    echo "Usage: $0 <vmid> --image <file> --name <name> [--cipassword <password>] | [--sshkey[s] <filepath>] [OPTIONS]"
-    echo '    <vmid>              Proxmox unique ID of the VM.'
-    echo '    --image             Path to image file.'
-    echo '    --name              A name for the VM.'
-    echo '    --cipassword        Password to assign the user. Using this is generally not recommended. Use ssh keys instead.'
-    echo '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
-    echo
-    echo 'Additional options:'
-    echo "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
-    echo "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
-    echo '    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.'
-    echo '    --install-docker    Install docker and docker-compose.'
-    echo
+    echo_err
+    echo_err "Usage: $0 <vmid> --image <file> --name <name> [--cipassword <password>] | [--sshkey[s] <filepath>] [OPTIONS]"
+    echo_err '    <vmid>              Proxmox unique ID of the VM.'
+    echo_err '    --image             Path to image file.'
+    echo_err '    --name              A name for the VM.'
+    echo_err '    --cipassword        Password to assign the user. Using this is generally not recommended. Use ssh keys instead.'
+    echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
+    echo_err
+    echo_err 'Additional options:'
+    echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
+    echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
+    echo_err '    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.'
+    echo_err '    --install-docker    Install docker and docker-compose.'
+    echo_err "    --help, -h          Display this help message."
+    echo_err
     exit 1
 }
-
 
 
 #
 # Main
 #
 
-# Parse arguments
 VM_CORES=$DEFAULT_CORES
 VM_MEMORY=$DEFAULT_MEMORY
 VM_BALLOON=0
 VM_INSTALL_DOCKER=0
 
-VM_ID="$1"
-shift
+# Parse arguments -- https://stackoverflow.com/a/14203146/33244
+POSITIONAL_ARGS=()
+while [[ "$#" -gt 0 ]]; do case $1 in
+    --image) VM_IMAGE="$2"; shift; shift;;
+    --name) VM_NAME="$2"; shift; shift;;
+    --cipassword) VM_CIPASSWORD="$2"; shift; shift;;
+    --sshkey|--sshkeys) VM_SSHKEYS="$2"; shift; shift;;
 
-while [[ "$#" > 0 ]]; do case $1 in
-    --image) VM_IMAGE="$2"; shift;shift;;
-    --name) VM_NAME="$2"; shift;shift;;
-    --cipassword) VM_CIPASSWORD="$2"; shift;shift;;
-    --sshkey|--sshkeys) VM_SSHKEYS="$2"; shift;shift;;
+    --cores) VM_CORES="$2"; shift; shift;;
+    --memory) VM_MEMORY="$2"; shift; shift;;
+    --balloon) VM_BALLOON="$2"; shift; shift;;
+    --install-docker) VM_INSTALL_DOCKER=1; shift;;
 
-    --cores) VM_CORES="$2"; shift;shift;;
-    --memory) VM_MEMORY="$2";shift;shift;;
-    --balloon) VM_BALLOON="$2";shift;shift;;
-    --install-docker) VM_INSTALL_DOCKER=1;shift;;
-
-    *) show_usage "Invalid argument: $1"; shift; shift;;
+    -h|--help) show_usage;;
+    -*|--*) show_usage "Unknown option: $1";;
+    *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
+VM_ID="$1"
 if [ -z "$VM_ID" ]; then show_usage "You must inform a VM id."; fi;
 if [ -z "$VM_IMAGE" ]; then show_usage "You must inform an image file (--image)."; fi;
 if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
@@ -165,7 +173,7 @@ do
 done
 
 # Remove custom cloud-init configuration
-qm set 201 --delete cicustom
+qm set $VM_ID --delete cicustom
 rm $CI_USER_FILE_FULL
 
 echo 'All done!'

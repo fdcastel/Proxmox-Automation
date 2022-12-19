@@ -3,7 +3,7 @@
 PBS_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pbs-enterprise.list'
 
 #
-# Check PVE version
+# Check PBS version
 #
 proxmox-backup-manager version | grep 'proxmox-backup-server 2'
 if [ $? -ne 0 ]; then

@@ -4,18 +4,24 @@ set -e    # Exit when any command fails
 
 
 #
-# Usage
+# Functions
 #
+
+function echo_err() { 
+    >&2 echo "$@"
+}
+
 function show_usage() {
     if [ -n "$1" ]; then
         tput setaf 1
         echo "Error: $1";
         tput sgr0
     fi
-    echo
-    echo "Usage: $0 <ctid>"
-    echo '    <ctid>              Proxmox unique ID of the CT.'
-    echo
+    echo_err
+    echo_err "Usage: $0 <ctid> [--attach]"
+    echo_err '    <ctid>              Proxmox unique ID of the CT.'
+    echo_err '    --attach            Attach created volume to CT.'
+    echo_err
     exit 1
 }
 
@@ -23,15 +29,20 @@ function show_usage() {
 #
 # Main
 #
+CT_ATTACH=0
 
-# Parse arguments
-CT_ID="$1"
-shift
+# Parse arguments -- https://stackoverflow.com/a/14203146/33244
+POSITIONAL_ARGS=()
+while [[ "$#" -gt 0 ]]; do case $1 in
+    --attach) CT_ATTACH=1; shift; shift;;
 
-while [[ "$#" > 0 ]]; do case $1 in
-    *) show_usage "Invalid argument: $1"; shift; shift;;
+    -h|--help) show_usage;;
+    -*|--*) show_usage "Unknown option: $1";;
+    *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
+CT_ID="$1"
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 
 # Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/easy_way_to_run_docker_in_an_unprivileged_lxc_on/
@@ -60,4 +71,6 @@ chown -R 100000:100000 $TMP_MOUNT
 umount $TMP_MOUNT
 rmdir $TMP_MOUNT
 
-pct set $CT_ID --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0
+if [ $CT_ATTACH -eq 1 ]; then 
+    pct set $CT_ID --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0
+fi;

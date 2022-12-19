@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e    # Exit when any command fails
+
 
 #
 # Constants
@@ -26,6 +28,7 @@ function show_usage() {
     echo_err "Usage: $0 <url> [OPTIONS]"
     echo_err '    <url>                Url of image to download.'
     echo_err "    --no-clobber, -nc    Doesn't overwrite an existing image."
+    echo_err "    --help, -h           Display this help message."
     echo_err
     exit 1
 }
@@ -35,16 +38,20 @@ function show_usage() {
 # Main
 #
 
-# Parse arguments
-URL="$1"
 NO_CLOBBER=0
-shift
 
-while [[ "$#" > 0 ]]; do case $1 in
-    -nc|--no-clobber) NO_CLOBBER=1;shift;;
-    *) show_usage "Invalid argument: $1"; shift; shift;;
+# Parse arguments -- https://stackoverflow.com/a/14203146/33244
+POSITIONAL_ARGS=()
+while [[ "$#" -gt 0 ]]; do case $1 in
+    -nc|--no-clobber) NO_CLOBBER=1; shift;;
+
+    -h|--help) show_usage;;
+    -*|--*) show_usage "Unknown option: $1";;
+    *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
+URL="$1"
 if [ -z "$URL" ]; then show_usage "You must inform an url."; fi;
 
 # Extract the base file name from a URL -- https://unix.stackexchange.com/a/64435
