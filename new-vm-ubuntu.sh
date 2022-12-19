@@ -7,8 +7,10 @@ set -e    # Exit when any command fails
 # Constants
 #
 
+DEFAULT_OSTYPE='l26'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
+DEFAULT_DISKSIZE='120G'
 
 
 #
@@ -34,8 +36,10 @@ function show_usage() {
     echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo_err
     echo_err 'Additional options:'
+    echo_err "    --ostype            Guest OS type (default = $DEFAULT_OSTYPE)."
     echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
+    echo_err "    --disksize          Size of VM main disk (default = $DEFAULT_DISKSIZE)."
     echo_err '    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.'
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --help, -h          Display this help message."
@@ -48,8 +52,10 @@ function show_usage() {
 # Main
 #
 
+VM_OSTYPE=$DEFAULT_OSTYPE
 VM_CORES=$DEFAULT_CORES
 VM_MEMORY=$DEFAULT_MEMORY
+VM_DISKSIZE=$DEFAULT_DISKSIZE
 VM_BALLOON=0
 VM_INSTALL_DOCKER=0
 
@@ -61,8 +67,10 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --cipassword) VM_CIPASSWORD="$2"; shift; shift;;
     --sshkey|--sshkeys) VM_SSHKEYS="$2"; shift; shift;;
 
+    --ostype) VM_OSTYPE="$2"; shift; shift;;
     --cores) VM_CORES="$2"; shift; shift;;
     --memory) VM_MEMORY="$2"; shift; shift;;
+    --disksize) VM_DISKSIZE="$2"; shift; shift;;
     --balloon) VM_BALLOON="$2"; shift; shift;;
     --install-docker) VM_INSTALL_DOCKER=1; shift;;
 
@@ -82,7 +90,7 @@ if [ -z "$VM_CIPASSWORD" ] && [ -z "$VM_SSHKEYS" ]; then show_usage "You must in
 
 # Create VM
 qm create $VM_ID --name $VM_NAME \
-    --ostype l26 \
+    --ostype $VM_OSTYPE \
     --scsihw virtio-scsi-single \
     --agent 1 \
     --bios ovmf \
@@ -103,7 +111,7 @@ qm importdisk $VM_ID $VM_IMAGE local-zfs
 qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
     --boot c \
     --bootdisk scsi1
-qm resize $VM_ID scsi1 120G
+qm resize $VM_ID scsi1 $VM_DISKSIZE
 
 # Disk 2: cloud-init
 qm set $VM_ID --ide2 local-zfs:cloudinit 
@@ -111,6 +119,7 @@ qm set $VM_ID --ide2 local-zfs:cloudinit
 
 
 # Initialize VM via cloud-init
+mkdir -p /var/lib/vz/snippets/
 CI_USER_FILE="vm-$VM_ID-cloud-init-user.yml"
 CI_USER_FILE_FULL="/var/lib/vz/snippets/$CI_USER_FILE"
 
