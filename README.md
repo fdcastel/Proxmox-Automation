@@ -1,13 +1,253 @@
 # Proxmox VE automation scripts
 
-Collection of scripts to create VMs in Proxmox VE.
+Collection of scripts to manage Proxmox environments.
+
+Please read section [Using Docker on LXC](#using-docker-on-lxc) if you are planning to use Docker with Linux Containers (LXC).
 
 
 
-## How to install
+# How to install
 
-To download all scripts into your temp folder:
+To download all scripts into a temporary folder:
 
 ```bash
 source <(curl -Ls https://bit.ly/p-v-a)
 ```
+
+This will download and execute [bootstrap.sh](bootstrap.sh). It will also install `unzip` apt package.
+
+
+
+# Scripts
+
+## Summary
+  - [download-cloud-image](#download-cloud-image)
+  - [new-ct-docker-volume](#new-ct-docker-volume)
+  - [new-ct](#new-ct)
+  - [new-vm](#new-vm)
+  - [remove-nag-subscription](#remove-nag-subscription)
+  - [setup-pbs](#setup-pbs)
+  - [setup-pve](#setup-pve)
+
+
+
+## download-cloud-image
+
+```
+Usage: ./download-cloud-image.sh <url> [OPTIONS]
+    <url>                Url of image to download.
+    --no-clobber, -nc    Doesn't overwrite an existing image.
+    --help, -h           Display this help message.
+```
+
+Downloads an image from given `url` into `/var/lib/vz/template/iso/` folder. 
+
+If the image already exists it will not be downloaded again.
+
+If the file is compressed with `gz`, `xz` or `zip` it will also uncompress it.
+
+Returns the full path of downloaded image.
+
+### Example
+
+```bash
+# Download Ubuntu 22.04 LTS image
+UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
+pveam download local $UBUNTU_IMAGE
+```
+
+
+
+## new-ct-docker-volume
+
+```
+Usage: ./new-ct-docker-volume.sh <ctid> [--attach]
+    <ctid>              Proxmox unique ID of the CT.
+    --attach            Attach created volume to CT.
+```
+
+Creates a special volume for `docker` usage with LXC containers running over `zfs`. 
+
+This script should be used only for restore operations. Please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
+
+
+
+## new-ct
+
+```
+Usage: ./new-ct.sh <ctid> --ostemplate <file> --hostname <name> --password <password> [OPTIONS]
+    <ctid>              Proxmox unique ID of the CT.
+    --ostemplate        The OS template or backup file.
+    --hostname          Set a host name for the container.
+    --password          Sets root password inside container.
+
+Additional options:
+    --ostype            OS type (default = ubuntu).
+    --cores             Number of cores per socket (default = 2).
+    --memory            Amount of RAM for the VM in MB (default = 2048).
+    --rootfs            Use volume as container root (default = local-zfs:8).
+    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
+    --privileged        Makes the container run as privileged user (default = unprivileged).
+    --install-docker    Install docker and docker-compose.
+    --help, -h          Display this help message.
+
+```
+
+Creates a LXC container (CT).
+
+Please see [`pct` command documentation](https://pve.proxmox.com/pve-docs/pct.1.html) for more information about the options.
+
+Additionally, you can use `--install-docker` to also install `docker` into container (currently implemented only for Ubuntu, Debian and Alpine). In this case, please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
+
+### Example
+
+```bash
+# Download Ubuntu 22.04 LTS image
+UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
+UBUNTU_TEMPLATE="local:vztmpl/$UBUNTU_IMAGE"
+pveam download local $UBUNTU_IMAGE
+
+
+# Creates an Ubuntu LXC container with a 120G storage, "my-key.pub" ssh key and Docker installed.
+CT_ID=310
+CT_NAME='ct-ubuntu'
+CT_PASSWORD='uns@f3p@ss0rd'
+./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --password $CT_PASSWORD --sshkey ~/.ssh/my-key.pub --rootfs local-zfs:120 --install-docker
+```
+
+
+
+## new-vm
+
+```
+Usage: ./new-vm.sh <vmid> --image <file> --name <name> [--cipassword <password>] | [--sshkey[s] <filepath>] [OPTIONS]
+    <vmid>              Proxmox unique ID of the VM.
+    --image             Path to image file.
+    --name              A name for the VM.
+    --cipassword        Password to assign the user. Using this is generally not recommended. Use ssh keys instead.
+    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
+
+Additional options:
+    --ostype            Guest OS type (default = l26).
+    --cores             Number of cores per socket (default = 2).
+    --memory            Amount of RAM for the VM in MB (default = 2048).
+    --disksize          Size of VM main disk (default = 120G).
+    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.
+    --install-docker    Install docker and docker-compose.
+    --help, -h          Display this help message.
+```
+
+Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+
+Additionally, you can use `--install-docker` to also install `docker` into virtual machine (currently implemented only for Ubuntu). 
+
+### Example
+
+```bash
+# Download Ubuntu 22.04 LTS image
+URL='https://cloud-images.ubuntu.com/releases/jammy/release/ubuntu-22.04-server-cloudimg-amd64.img'
+UBUNTU_IMAGE_FILE=$(./download-cloud-image.sh $URL --no-clobber)
+
+# Creates an Ubuntu VM with "my-key.pub" ssh key and Docker installed.
+VM_ID=201
+./new-vm.sh $VM_ID --image $UBUNTU_IMAGE_FILE --name 'vm-ubuntu' --sshkey '~/.ssh/my-key.pub' --install-docker
+```
+
+
+
+## remove-nag-subscription
+
+```
+Usage: ./remove-nag-subscription.sh
+```
+
+Removes Proxmox VE / Proxmox Backup Server nag dialog from web UI.
+
+
+
+## setup-pbs
+
+```
+Usage: ./setup-pbs.sh
+```
+
+First-time setup for Proxmox Backup Server.
+
+Remove `enterprise` (subscription-only) sources and adds `pbs-no-subscription` repository provided by [proxmox.com](https://proxmox.com). NOT recommended for production use.
+
+This script must be run only once.
+
+
+
+## setup-pve
+
+```
+Usage: ./setup-pve.sh
+```
+
+First-time setup for Proxmox VE. 
+
+Remove `enterprise` (subscription-only) sources and adds `pve-no-subscription` repository provided by [proxmox.com](https://proxmox.com). NOT recommended for production use.
+
+This script must be run only once.
+
+
+
+# Using Docker on LXC
+
+The following is a compilation about the subject I found around the net. Please read if you wish to follow this path.
+
+
+
+## Overview
+
+**Using Docker on LXC is not recommended by Proxmox team.** However, certain features of LXC like reduced memory usage and bind mount points between containers and host may be an incentive to go against this recommendation.
+
+Two discussions about the pros and cons of each alternative may be found [here](https://forum.proxmox.com/threads/proxmox-7-1-and-docker-lxc-vs-vm.105140) and [here](https://www.reddit.com/r/Proxmox/comments/xno101/using_multiple_lxc_vs_multiple_lxcdocker_vs/).
+
+
+
+## ZFS
+
+Using Docker _over ZFS storage_ causes an additional burden: It will use [`vfs` driver](https://docs.docker.com/storage/storagedriver/vfs-driver/) by default, which is terribly inefficient.
+
+To check what storage driver Docker is currently using, use `docker info` and look for the `Storage Driver` line:
+```bash
+$ docker info
+
+<...>
+Storage Driver: vfs
+<...>
+```
+
+To avoid this, you have 3 options:
+
+  - use [`fuse-overlayfs`](https://github.com/containers/fuse-overlayfs)
+  - use [`zfs` storage driver](https://docs.docker.com/storage/storagedriver/zfs-driver/)
+  - use `overlay2` storage driver
+
+To make a long story short, I did not find any successful report of the two first options.
+
+`overlay2` is a [stable and recommended driver](https://docs.docker.com/storage/storagedriver/select-storage-driver/) but only works with `xfs` and `ext4` filesystems.
+
+This did not not stop [this guy from reddit](https://www.reddit.com/r/Proxmox/comments/lsrt28/comment/goubt7u/?utm_source=reddit&utm_medium=web2x&context=3) some years ago to find a workaround: to create a sparse zfs volume formatted as `ext4` and use it as a bind mount point for `/var/lib/docker`. This will make Docker use `overlay2` without any changes needed in Docker configuration.
+
+It may seem a hack (which it is) but it [reportedly works better than the very own Docker ZFS driver](https://github.com/moby/moby/issues/31247#issuecomment-611976248).
+
+All these steps are contained into [`new-ct-docker-volume.sh`](new-ct-docker-volume.sh) script, which is also used by [`new-ct.sh`](new-ct.sh) script when invoked with `--install-docker` option.
+
+From my personal experience: I am using this solution for more than a year now in my home servers with zero problems of performance nor stability. That said I do not use nor recommend this solution in any production capacity. Also, see [Caveats](#caveats) section below.
+
+
+
+## Caveats
+
+  - Backup works. Restore does not (via Web UI)
+  - ~~Snapshots does not work~~
+  - ~~Migration does not work~~
+
+**December 2022:** [This guy](https://github.com/nextcloud/all-in-one/discussions/1490#discussion-4636908) found that naming the ZFS volume in a very specific way solves  the snapshot and migration problems.
+
+Backup (both to local storage and to a Proxmox Backup Server) works fine.
+
+However, the Restore option will not work when invoked over Web UI. 
