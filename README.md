@@ -4,6 +4,8 @@ Collection of scripts to manage Proxmox environments.
 
 Please read section [Using Docker on LXC](#using-docker-on-lxc) if you are planning to use Docker with Linux Containers (LXC).
 
+To migrate an existing Windows VM from Hyper-V to Proxmox see [this other project](https://github.com/fdcastel/Hyper-V-Automation#windows-prepare-a-vhdx-for-qemu-migration) (for Windows) first.
+
 
 
 # How to install
