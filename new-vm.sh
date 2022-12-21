@@ -90,6 +90,7 @@ if [ -z "$VM_CIPASSWORD" ] && [ -z "$VM_SSHKEYS" ]; then show_usage "You must in
 
 # Create VM
 qm create $VM_ID --name $VM_NAME \
+    --cpu host \
     --ostype $VM_OSTYPE \
     --scsihw virtio-scsi-single \
     --agent 1 \
