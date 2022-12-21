@@ -137,9 +137,13 @@ Additional options:
     --help, -h          Display this help message.
 ```
 
-Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+Creates a VM from a cloud image.
+
+You can use any image containing `cloud-init` and `qemu-guest-agent` installed.
 
 Additionally, you can use `--install-docker` to also install `docker` into virtual machine (currently implemented only for Ubuntu). 
+
+Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
 
 ### Example
 
