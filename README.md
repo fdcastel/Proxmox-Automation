@@ -22,6 +22,7 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
 
 ## Summary
   - [download-cloud-image](#download-cloud-image)
+  - [import-vm-windows](#import-vm-windows)
   - [new-ct-docker-volume](#new-ct-docker-volume)
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
@@ -54,6 +55,37 @@ Returns the full path of downloaded image.
 # Download Ubuntu 22.04 LTS image
 UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
 pveam download local $UBUNTU_IMAGE
+```
+
+
+
+## import-vm-windows
+
+```
+Usage: ./import-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
+    <vmid>              Proxmox unique ID of the VM.
+    --image             Path to image file.
+    --name              A name for the VM.
+
+Additional options:
+    --ostype            Guest OS type (default = win11).
+    --cores             Number of cores per socket (default = 2).
+    --memory            Amount of RAM for the VM in MB (default = 2048).
+    --help, -h          Display this help message.
+```
+
+Creates a VM from an existing Hyper-V Windows VM. For _Generation 2_ (UEFI) types only.
+
+Image must be in `qcow2` format. You may use [Convert-VhdxToQcow2](https://github.com/fdcastel/Hyper-V-Automation#convert-vhdxtoqcow2) (on Windows) to convert a VHDX.
+
+Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+
+### Example
+
+```bash
+# Creates a Windows VM from a vhdx converted to qcow2.
+VM_ID=103
+./import-vm-windows.sh $VM_ID --image '/tmp/TstWindows.qcow2' --name 'tst-windows'
 ```
 
 
