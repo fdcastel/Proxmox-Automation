@@ -104,6 +104,11 @@ Creates a special volume for `docker` usage with LXC containers running over `zf
 
 This script should be used only for restore operations. Please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
 
+Please edit the following variable for integration in your environment:
+DOCKER_RPOOL
+DOCKER_DEV
+FS
+DISK_SIZE
 
 
 ## new-ct
