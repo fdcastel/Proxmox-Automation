@@ -98,13 +98,15 @@ VM_ID=103
 ```
 Usage: ./new-ct-docker-volume.sh <ctid> [--attach]
     <ctid>              Proxmox unique ID of the CT.
+    --volsize           Size of volume (default = 8G).
     --attach            Attach created volume to CT.
 ```
 
-Creates a special volume for `docker` usage with LXC containers running over `zfs`. 
+Creates a special `ext4` volume for Docker usage with LXC containers running over `zfs`. 
 
-This script should be used only for restore operations. Please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
+There's no need to use this script directly. Please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
 
+Returns the name of created volume.
 
 
 ## new-ct

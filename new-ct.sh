@@ -52,12 +52,16 @@ function show_usage() {
 # Main
 #
 
+CT_OSTEMPLATE=
+CT_HOSTNAME=
+CT_PASSWORD=
 CT_OSTYPE=$DEFAULT_OSTYPE
 CT_CORES=$DEFAULT_CORES
 CT_MEMORY=$DEFAULT_MEMORY
 CT_ROOTFS=$DEFAULT_ROOTFS
-CT_INSTALL_DOCKER=0
+CT_SSHKEYS=
 CT_UNPRIVILEGED=1
+CT_INSTALL_DOCKER=0
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -98,10 +102,7 @@ if [ -n "$CT_SSHKEYS" ]; then
 fi;
 
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    ./new-ct-docker-volume.sh $CT_ID
-
-    # Name must be in this format otherwise snapshots and migration will not work. -- https://github.com/nextcloud/all-in-one/discussions/1490
-    DOCKER_VOL="vm-$CT_ID-disk-1"
+    DOCKER_VOL=$(./new-ct-docker-volume.sh $CT_ID)
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--unprivileged $CT_UNPRIVILEGED --features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"

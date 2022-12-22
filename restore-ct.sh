@@ -62,10 +62,7 @@ if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_FROM" ]; then show_usage "You must inform a backup file to restore (--from)."; fi;
 
 if [ $CT_RESTORE_DOCKER -eq 1 ]; then
-    ./new-ct-docker-volume.sh $CT_ID
-
-    # Name must be in this format otherwise snapshots and migration will not work. -- https://github.com/nextcloud/all-in-one/discussions/1490
-    DOCKER_VOL="vm-$CT_ID-disk-1"
+    DOCKER_VOL=$(./new-ct-docker-volume.sh $CT_ID)
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--rootfs $DEFAULT_ROOTFS --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
@@ -98,5 +95,7 @@ EOF
         tput sgr0
     fi
 
-    echo "All done! Now please remember to rebuild your docker infrastructure inside the container (e.g. 'docker-compose up -d')."
+    tput setaf 3
+    echo_err "Restore complete. Please remember to rebuild your docker infrastructure inside the container (e.g. 'docker-compose up -d')."
+    tput sgr0
 fi
