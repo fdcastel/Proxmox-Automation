@@ -29,6 +29,7 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
   - [remove-nag-subscription](#remove-nag-subscription)
+  - [restore-ct](#restore-ct)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
 
@@ -200,6 +201,24 @@ Usage: ./remove-nag-subscription.sh
 ```
 
 Removes Proxmox VE / Proxmox Backup Server nag dialog from web UI.
+
+
+
+## restore-ct
+
+```
+Usage: ./restore-ct.sh <ctid> --from <file> [OPTIONS]
+    <ctid>              Proxmox unique ID of the CT.
+    --from              The backup file.
+
+Additional options:
+    --restore-docker    Restore docker zfs volumes.
+    --help, -h          Display this help message.
+```
+
+Restores a CT from a backup. 
+
+Use `--restore-docker` to rebuild docker `zfs` volume for `/var/lib/docker`.
 
 
 
