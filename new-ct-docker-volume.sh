@@ -54,14 +54,20 @@ DOCKER_VOL="vm-$CT_ID-disk-1"
 # Create a sparse zvol for docker configuration
 DOCKER_RPOOL="rpool/data/$DOCKER_VOL"
 DOCKER_DEV="/dev/zvol/$DOCKER_RPOOL"
-zfs destroy $DOCKER_RPOOL 2> /dev/null || true      # Ignore error if does not exists
-zfs create -s -V 32G $DOCKER_RPOOL
 
-# Wait for it... (mkfs.ext4 fails without this!)
+# Set var for disk size
+DISK_SIZE="32G"
+zfs destroy $DOCKER_RPOOL 2> /dev/null || true      # Ignore error if does not exists
+zfs create -s -V $DISK_SIZE $DOCKER_RPOOL
+
+# Wait for it... (mkfs.$FS fails without this!)
 sleep 1
 
+# Set filesystem "ext4" or "xfs" is possible
+FS="ext4"
+
 # Format it as ext4
-mkfs.ext4 $DOCKER_DEV
+mkfs.$FS $DOCKER_DEV
 
 # Set permissions
 TMP_MOUNT="/tmp/$DOCKER_VOL"
