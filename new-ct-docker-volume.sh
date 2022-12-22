@@ -57,10 +57,10 @@ CT_ID="$1"
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 
 # Original idea by [u/volopasse].
-#   Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/easy_way_to_run_docker_in_an_unprivileged_lxc_on/
+#   Source: https://www.reddit.com/r/Proxmox/comments/lsrt28/comment/goubt7u/?utm_source=reddit&utm_medium=web2x&context=3
 
 # Name must be in this format otherwise snapshots and migration will not work. [iGadget]
-#   Source: https://github.com/nextcloud/all-in-one/discussions/1490
+#   Source: https://github.com/alexpdp7/ansible-create-proxmox-host/issues/1#issue-1492924235
 DOCKER_VOL="vm-$CT_ID-disk-1"
 
 # Create a sparse zvol for docker configuration

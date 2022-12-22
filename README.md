@@ -222,6 +222,15 @@ Restores a CT from a backup.
 
 Use `--restore-docker` to rebuild docker `zfs` volume for `/var/lib/docker`.
 
+### Example
+
+```bash
+# Local backups are stored into '/var/lib/vz/dump/'
+CT_ID=321
+FROM='/var/lib/vz/dump/vzdump-lxc-321-2022_12_22-18_21_59.tar.zst'
+./restore-ct.sh $CT_ID --from $FROM --restore-docker
+```
+
 
 
 ## setup-pbs
@@ -289,24 +298,44 @@ To make a long story short, I did not find any successful report of the two firs
 
 `overlay2` is a [stable and recommended driver](https://docs.docker.com/storage/storagedriver/select-storage-driver/) but only works with `xfs` and `ext4` filesystems.
 
-This did not not stop [this guy from reddit](https://www.reddit.com/r/Proxmox/comments/lsrt28/comment/goubt7u/?utm_source=reddit&utm_medium=web2x&context=3) some years ago to find a workaround: to create a sparse zfs volume formatted as `ext4` and use it as a bind mount point for `/var/lib/docker`. This will make Docker use `overlay2` without any changes needed in Docker configuration.
+This did not not stop [u/volopasse](https://www.reddit.com/r/Proxmox/comments/lsrt28/comment/goubt7u/?utm_source=reddit&utm_medium=web2x&context=3) some years ago to find a workaround: to create a sparse zfs volume formatted as `ext4` and use it as a bind mount point for `/var/lib/docker`. This will make Docker use `overlay2` without any changes needed in Docker configuration.
 
 It may seem a hack (which it is) but it [reportedly works better than the very own Docker ZFS driver](https://github.com/moby/moby/issues/31247#issuecomment-611976248).
 
-All these steps are contained into [`new-ct-docker-volume.sh`](new-ct-docker-volume.sh) script, which is also used by [`new-ct.sh`](new-ct.sh) script when invoked with `--install-docker` option.
+All these steps are wrapped into [`new-ct-docker-volume.sh`](new-ct-docker-volume.sh) script, which is also used by [`new-ct.sh`](new-ct.sh) script when invoked with `--install-docker` option.
 
 From my personal experience: I am using this solution for more than a year now in my home servers with zero problems of performance nor stability. That said I do not use nor recommend this solution in any production capacity. Also, see [Caveats](#caveats) section below.
 
 
 
-## Caveats
+## Caveats when using Docker on LXC
 
-  - Backup works. Restore does not (via Web UI)
-  - ~~Snapshots does not work~~
-  - ~~Migration does not work~~
+### Backups
 
-**December 2022:** [This guy](https://github.com/nextcloud/all-in-one/discussions/1490#discussion-4636908) found that naming the ZFS volume in a very specific way solves  the snapshot and migration problems.
+Backups (both to local storage and to Proxmox Backup Server) works fine.
 
-Backup (both to local storage and to a Proxmox Backup Server) works fine.
+However, please note that **the contents of `/var/lib/docker` will not be included in backups**.
 
-However, the Restore option will not work when invoked over Web UI. 
+Because of this you should not use [Docker volumes](https://docs.docker.com/storage/volumes/) to store any persistent data which is important since they will be kept at this location (and, again, will **not** be included in backups). 
+
+Instead you should use [Docker bind mounts](https://docs.docker.com/storage/bind-mounts/) which mounts a file or directory from the Docker host (LXC, in our case) into a Docker container. All files from LXC filesystem will be included into backups.
+
+Lastly, since we are talking about backups, please remember again that all this is very new and _not recommended by Proxmox team_. I put these scripts initially for my personal usage and they have yet a long way to run until be considered stable and battle-tested. Thus, caution is advised.
+
+
+
+### Restoring backups
+
+To restore an existing backup you _must_ use [restore-ct](#restore-ct) script with the `--restore-docker` option. This will rebuild the `zfs` volume for `/var/lib/docker` and mount it correctly.
+
+Simply using the _Restore_ command from Proxmox Web UI will fail since it doesn't know what to do with `/var/lib/docker/` bind mount point. 
+
+
+
+### Migrations & Snapshots
+
+Originally this method caused migrations and snapshot to fail.
+
+[iGadget](https://github.com/alexpdp7/ansible-create-proxmox-host/issues/1#issue-1492924235) found that naming the ZFS volume in a very specific way solves the snapshot and migration problems. This naming scheme is already adopted by these scripts so, for now, migrations and snapshots are working.
+
+However, please be aware that this takes advantage of a very specific way Proxmox was implemented and it may break in future Proxmox versions. 
