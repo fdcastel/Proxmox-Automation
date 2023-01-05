@@ -44,6 +44,8 @@ function show_usage() {
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --help, -h          Display this help message."
     echo_err
+    echo_err "Any additional arguments are passed to 'pct create' command."
+    echo_err
     exit 1
 }
 
@@ -80,12 +82,11 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
 
     -h|--help) show_usage;;
-    -*|--*) show_usage "Unknown option: $1";;
     *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-CT_ID="$1"
+CT_ID="$1"; shift
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_OSTEMPLATE" ]; then show_usage "You must inform an OS template (--ostemplate)."; fi;
 if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostname)."; fi;
@@ -121,7 +122,8 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --memory $CT_MEMORY \
     --onboot 1 \
     $DOCKER_ARGS \
-    $SSH_KEYS_ARGS
+    $SSH_KEYS_ARGS \
+    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Cannot set timezone in 'pct create' (Bug?)
 #   Causes "Insecure dependency in symlink while running with -T switch at /usr/share/perl5/PVE/LXC/Setup/Base.pm"

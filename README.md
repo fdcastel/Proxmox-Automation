@@ -109,6 +109,7 @@ There's no need to use this script directly. Please see section [Using Docker on
 Returns the name of created volume.
 
 
+
 ## new-ct
 
 ```
@@ -127,14 +128,13 @@ Additional options:
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --install-docker    Install docker and docker-compose.
     --help, -h          Display this help message.
-
 ```
 
 Creates a LXC container (CT).
 
-Please see [`pct` command documentation](https://pve.proxmox.com/pve-docs/pct.1.html) for more information about the options.
-
 Additionally, you can use `--install-docker` to also install `docker` into container (currently implemented only for Ubuntu, Debian and Alpine). In this case, please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
+
+Any additional arguments are passed to `pct create` command. Please see [`pct` command documentation](https://pve.proxmox.com/pve-docs/pct.1.html) for more information about the options.
 
 ### Example
 
@@ -180,7 +180,7 @@ You can use any image containing `cloud-init` and `qemu-guest-agent` installed.
 
 Additionally, you can use `--install-docker` to also install `docker` into virtual machine (currently implemented only for Ubuntu). 
 
-Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
 
 ### Example
 

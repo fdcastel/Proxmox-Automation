@@ -44,6 +44,8 @@ function show_usage() {
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --help, -h          Display this help message."
     echo_err
+    echo_err "Any additional arguments are passed to 'qm create' command."
+    echo_err
     exit 1
 }
 
@@ -79,12 +81,11 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --install-docker) VM_INSTALL_DOCKER=1; shift;;
 
     -h|--help) show_usage;;
-    -*|--*) show_usage "Unknown option: $1";;
     *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-VM_ID="$1"
+VM_ID="$1"; shift
 if [ -z "$VM_ID" ]; then show_usage "You must inform a VM id."; fi;
 if [ -z "$VM_IMAGE" ]; then show_usage "You must inform an image file (--image)."; fi;
 if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
@@ -105,7 +106,8 @@ qm create $VM_ID --name $VM_NAME \
     --numa 1 \
     --memory $VM_MEMORY \
     --balloon $VM_BALLOON \
-    --onboot 1
+    --onboot 1 \
+    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Disk 0: EFI
 pvesm alloc local-zfs $VM_ID vm-$VM_ID-efi 1M
