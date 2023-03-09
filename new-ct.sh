@@ -11,7 +11,7 @@ DEFAULT_OSTYPE='ubuntu'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
 DEFAULT_ROOTFS='local-zfs:8'
-
+DEFAULT_BRIDGE='vmbr0'
 
 #
 # Functions
@@ -64,6 +64,7 @@ CT_ROOTFS=$DEFAULT_ROOTFS
 CT_SSHKEYS=
 CT_UNPRIVILEGED=1
 CT_INSTALL_DOCKER=0
+CT_BRIDGE=$DEFAULT_BRIDGE
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -77,6 +78,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --memory) CT_MEMORY="$2"; shift; shift;;
     --rootfs) CT_ROOTFS="$2"; shift; shift;;
     --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift; shift;;
+    --bridge) CT_BRIDGE="$2"; shift; shift;;
     
     --privileged) CT_UNPRIVILEGED=0; shift;;
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
@@ -117,7 +119,7 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --hostname $CT_HOSTNAME \
     --password $CT_PASSWORD \
     --rootfs $CT_ROOTFS \
-    --net0 name=$CT_INTERFACE_NAME,bridge=vmbr0,ip=dhcp \
+    --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp \
     --cores $CT_CORES \
     --memory $CT_MEMORY \
     --onboot 1 \
