@@ -108,7 +108,7 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     DOCKER_VOL=$(./new-ct-docker-volume.sh $CT_ID)
 
     # Extra arguments required for Docker
-    DOCKER_ARGS="--features keyctl=$CT_UNPRIVILEGED,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
+    DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
 fi;
 
 # Create CT
