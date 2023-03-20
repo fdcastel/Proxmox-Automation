@@ -12,6 +12,7 @@ DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
 DEFAULT_ROOTFS='local-zfs:8'
 DEFAULT_BRIDGE='vmbr0'
+DEFAULT_VOLSIZE='8G'
 
 #
 # Functions
@@ -41,6 +42,8 @@ function show_usage() {
     echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
     echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
+    echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)"
+    echo_err "    --volsize           Set container volume size (default = $DEFAULT_VOLSIZE)"
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --help, -h          Display this help message."
     echo_err
@@ -65,6 +68,7 @@ CT_SSHKEYS=
 CT_UNPRIVILEGED=1
 CT_INSTALL_DOCKER=0
 CT_BRIDGE=$DEFAULT_BRIDGE
+CT_VOLSIZE=$DEFAULT_VOLSIZE
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -79,6 +83,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --rootfs) CT_ROOTFS="$2"; shift; shift;;
     --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift; shift;;
     --bridge) CT_BRIDGE="$2"; shift; shift;;
+    --volsize) CT_VOLSIZE="$2"; shift; shift;;
     
     --privileged) CT_UNPRIVILEGED=0; shift;;
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
@@ -105,7 +110,7 @@ if [ -n "$CT_SSHKEYS" ]; then
 fi;
 
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    DOCKER_VOL=$(./new-ct-docker-volume.sh $CT_ID)
+    DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_VOLSIZE $CT_ID)
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
