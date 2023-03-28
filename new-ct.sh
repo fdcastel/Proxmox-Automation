@@ -141,7 +141,7 @@ pct set $CT_ID --timezone host
 # Start container
 pct start $CT_ID
 
-# Update /etc/issue
+ # Update /etc/issue
 pct exec $CT_ID sh <<EOF
 cat >/etc/issue <<'EOC'
 \S{PRETTY_NAME} \n \l
@@ -153,47 +153,47 @@ EOF
 # Install docker
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     # Wait for network -- Source: https://stackoverflow.com/a/24963234
-    cat | pct exec $CT_ID -- sh <<'EOF'
-        WAIT_FOR_HOST=google.com
-        while ! (ping -c 1 -W 1 $WAIT_FOR_HOST > /dev/null 2>&1); do
-            echo "Waiting for $WAIT_FOR_HOST - network interface might be down..."
-            sleep 1
-        done
+    pct exec $CT_ID -- sh <<EOF
+WAIT_FOR_HOST=google.com
+while ! (ping -c 1 -W 1 \$WAIT_FOR_HOST > /dev/null 2>&1); do
+    echo "Waiting for \$WAIT_FOR_HOST - network interface might be down..."
+    sleep 1
+done
 EOF
 
     if [ "$CT_OSTYPE" == 'ubuntu' ]; then
-        cat | pct exec $CT_ID -- sh <<'EOF'
-            # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
-            apt-get update
-            apt-get install -y ca-certificates curl gnupg lsb-release
-            mkdir -p /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-            apt-get update -y
-            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+        # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
+        pct exec $CT_ID -- sh <<EOF
+apt-get update
+apt-get install -y ca-certificates curl gnupg lsb-release
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
 EOF
     fi
 
     if [ "$CT_OSTYPE" == 'debian' ]; then
-        cat | pct exec $CT_ID -- sh <<'EOF'
-            # Install docker -- Source: https://docs.docker.com/engine/install/debian/
-            apt-get update
-            apt-get install -y ca-certificates curl gnupg lsb-release
-            mkdir -p /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-            apt-get update -y
-            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+        # Install docker -- Source: https://docs.docker.com/engine/install/debian/
+        pct exec $CT_ID -- sh <<EOF
+apt-get update
+apt-get install -y ca-certificates curl gnupg lsb-release
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
 EOF
     fi
 
     if [ "$CT_OSTYPE" == 'alpine' ]; then
-        cat | pct exec $CT_ID -- sh <<'EOF'
-            # Install docker -- Source: https://wiki.alpinelinux.org/wiki/Docker
-            apk update
-            apk add docker docker-compose
-            rc-update add docker boot
-            service docker start
+        # Install docker -- Source: https://wiki.alpinelinux.org/wiki/Docker    
+        pct exec $CT_ID -- sh <<EOF
+apk update
+apk add docker docker-compose
+rc-update add docker boot
+service docker start
 EOF
     fi
 
