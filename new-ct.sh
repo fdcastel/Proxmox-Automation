@@ -142,10 +142,12 @@ pct set $CT_ID --timezone host
 pct start $CT_ID
 
 # Update /etc/issue
-cat | pct exec $CT_ID -- sh -c 'cat > /etc/issue' <<EOF
+pct exec $CT_ID sh <<EOF
+cat >/etc/issue <<'EOC'
 \S{PRETTY_NAME} \n \l
 
 $CT_INTERFACE_NAME: \4{$CT_INTERFACE_NAME}
+EOC
 EOF
 
 # Install docker
