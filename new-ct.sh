@@ -10,9 +10,9 @@ set -e    # Exit when any command fails
 DEFAULT_OSTYPE='ubuntu'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
-DEFAULT_ROOTFS='local-zfs:8'
+DEFAULT_ROOTFS='local-zfs'
 DEFAULT_BRIDGE='vmbr0'
-DEFAULT_VOLSIZE='8G'
+DEFAULT_VOLSIZE='8'
 
 #
 # Functions
@@ -43,7 +43,7 @@ function show_usage() {
     echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)"
-    echo_err "    --volsize           Set container volume size (default = $DEFAULT_VOLSIZE)"
+    echo_err "    --volsize           Set container volume size in GB (default = $DEFAULT_VOLSIZE)"
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --help, -h          Display this help message."
     echo_err
@@ -110,7 +110,7 @@ if [ -n "$CT_SSHKEYS" ]; then
 fi;
 
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_VOLSIZE $CT_ID)
+    DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize "$CT_VOLSIZE"G $CT_ID)
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
@@ -123,7 +123,7 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
     --password $CT_PASSWORD \
-    --rootfs $CT_ROOTFS \
+    --rootfs $CT_ROOTFS:$CT_VOLSIZE\
     --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp \
     --cores $CT_CORES \
     --memory $CT_MEMORY \
