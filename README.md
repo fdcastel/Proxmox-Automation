@@ -123,7 +123,7 @@ Additional options:
     --ostype            OS type (default = ubuntu).
     --cores             Number of cores per socket (default = 2).
     --memory            Amount of RAM for the VM in MB (default = 2048).
-    --rootfs            Use volume as container root (default = local-zfs:8).
+    --rootfs            Use volume as container root (default = local-zfs:120).
     --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0)
@@ -216,6 +216,7 @@ Usage: ./restore-ct.sh <ctid> --from <file> [OPTIONS]
     --from              The backup file.
 
 Additional options:
+    --rootfs            Use volume as container root (default = local-zfs:120).
     --restore-docker    Restore docker zfs volumes.
     --help, -h          Display this help message.
 ```
