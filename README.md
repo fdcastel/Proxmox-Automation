@@ -127,7 +127,7 @@ Additional options:
     --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0)
-    --volsize           Set container volume size (default = 8G)"    
+    --docker-volsize    Set container volume size (default = 8G)"    
     --install-docker    Install docker and docker-compose.
     --help, -h          Display this help message.
 ```
