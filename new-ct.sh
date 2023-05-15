@@ -10,7 +10,7 @@ set -e    # Exit when any command fails
 DEFAULT_OSTYPE='ubuntu'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
-DEFAULT_ROOTFS='local-zfs'
+DEFAULT_ROOTFS='local-zfs:120'
 DEFAULT_BRIDGE='vmbr0'
 DEFAULT_VOLSIZE='8'
 
@@ -123,7 +123,7 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
     --password $CT_PASSWORD \
-    --rootfs $CT_ROOTFS:$CT_VOLSIZE\
+    --rootfs $CT_ROOTFS \
     --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp \
     --cores $CT_CORES \
     --memory $CT_MEMORY \

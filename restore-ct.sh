@@ -7,7 +7,7 @@ set -e    # Exit when any command fails
 # Constants
 #
 
-DEFAULT_ROOTFS='local-zfs:8'
+DEFAULT_ROOTFS='local-zfs:120'
 
 
 #
@@ -30,6 +30,7 @@ function show_usage() {
     echo_err '    --from              The backup file.'
     echo_err
     echo_err 'Additional options:'
+    echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
     echo_err '    --restore-docker    Restore docker zfs volumes.'
     echo_err "    --help, -h          Display this help message."
     echo_err
@@ -41,6 +42,7 @@ function show_usage() {
 # Main
 #
 
+CT_ROOTFS=$DEFAULT_ROOTFS
 CT_RESTORE_DOCKER=0
 DOCKER_ARGS=
 
@@ -49,6 +51,7 @@ POSITIONAL_ARGS=()
 while [[ "$#" -gt 0 ]]; do case $1 in
     --from) CT_FROM="$2"; shift; shift;;
     
+    --rootfs) CT_ROOTFS="$2"; shift; shift;;
     --restore-docker) CT_RESTORE_DOCKER=1; shift;;
 
     -h|--help) show_usage;;
@@ -65,7 +68,7 @@ if [ $CT_RESTORE_DOCKER -eq 1 ]; then
     DOCKER_VOL=$(./new-ct-docker-volume.sh $CT_ID)
 
     # Extra arguments required for Docker
-    DOCKER_ARGS="--rootfs $DEFAULT_ROOTFS --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
+    DOCKER_ARGS="--rootfs $CT_ROOTFS --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
 fi;
 
 # Create CT
