@@ -28,6 +28,8 @@ cat > $PVE_ENTERPRISE_SOURCES_FILE <<EOF
 # deb https://enterprise.proxmox.com/debian/pve bullseye pve-enterprise
 EOF
 
+rm /etc/apt/sources.list.d/pve-enterprise.list
+
 cat >> /etc/apt/sources.list <<EOF
 
 # PVE pve-no-subscription repository provided by proxmox.com,

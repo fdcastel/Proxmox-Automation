@@ -28,6 +28,8 @@ cat > $PBS_ENTERPRISE_SOURCES_FILE <<EOF
 # deb https://enterprise.proxmox.com/debian/pbs bullseye pbs-enterprise
 EOF
 
+rm /etc/apt/sources.list.d/pbs-enterprise.list
+
 cat >> /etc/apt/sources.list <<EOF
 
 # PBS pbs-no-subscription repository provided by proxmox.com,
