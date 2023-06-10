@@ -127,8 +127,9 @@ Additional options:
     --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0)
-    --docker-volsize    Set container volume size (default = 8G)"    
     --install-docker    Install docker and docker-compose.
+    --no-docker-volume  Do not create a new volume for /var/lib/docker.
+    --docker-volsize    Set container volume size (default = 8G)
     --help, -h          Display this help message.
 ```
 
@@ -145,7 +146,6 @@ Any additional arguments are passed to `pct create` command. Please see [`pct` c
 UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
 UBUNTU_TEMPLATE="local:vztmpl/$UBUNTU_IMAGE"
 pveam download local $UBUNTU_IMAGE
-
 
 # Creates an Ubuntu LXC container with a 120G storage, "my-key.pub" ssh key and Docker installed.
 CT_ID=310
@@ -279,6 +279,26 @@ Two discussions about the pros and cons of each alternative may be found [here](
 
 
 ## ZFS
+
+### Update (2023-06)
+
+As of Proxmox 7.3 Docker over LXC does uses `overlay2` by default. However there are still problems when using it over ZFS.
+
+The default behavior of [`new-ct.sh`](new-ct.sh) script when invoked with `--install-docker` option is to create a dedicated volume for `/var/lib/docker` as explained in the next section. 
+
+You may try to use `--no-docker-volume` to skip this step. However, be advised that (currently) many docker images fail to start due another problem with permissions. If you got an error like
+
+```
+docker: failed to register layer: ApplyLayer exit status 1 stdout: stderr: unlinkat /var/log/apt: invalid argument.
+```
+
+simply rebuild your container without `--no-docker-volume` and it will work.
+
+
+
+### Legacy information
+
+**IMPORTANT: This section contains outdated information.**
 
 Using Docker _over ZFS storage_ causes an additional burden: It will use [`vfs` driver](https://docs.docker.com/storage/storagedriver/vfs-driver/) by default, which is terribly inefficient.
 
