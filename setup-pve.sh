@@ -5,9 +5,9 @@ PVE_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pve-enterprise.list'
 #
 # Check PVE version
 #
-pveversion | grep 'pve-manager/7'
+pveversion | grep 'pve-manager/8'
 if [ $? -ne 0 ]; then
-    echo 'This script only works with Proxmox VE 7.x.'
+    echo 'This script only works with Proxmox VE 8.x.'
     exit 1
 fi
 
@@ -25,14 +25,15 @@ fi
 #
 cat > $PVE_ENTERPRISE_SOURCES_FILE <<EOF
 # Disable pve-enterprise
-# deb https://enterprise.proxmox.com/debian/pve bullseye pve-enterprise
+# deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
 EOF
 
 rm /etc/apt/sources.list.d/pve-enterprise.list
+rm /etc/apt/sources.list.d/ceph.list
 
 cat >> /etc/apt/sources.list <<EOF
 
-# PVE pve-no-subscription repository provided by proxmox.com,
+# Proxmox VE pve-no-subscription repository provided by proxmox.com,
 # NOT recommended for production use
-deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription
+deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
 EOF
