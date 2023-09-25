@@ -5,9 +5,9 @@ PBS_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pbs-enterprise.list'
 #
 # Check PBS version
 #
-proxmox-backup-manager version | grep 'proxmox-backup-server 2'
+proxmox-backup-manager version | grep 'proxmox-backup-server 3'
 if [ $? -ne 0 ]; then
-    echo 'This script only works with Proxmox Backup Server 2.x.'
+    echo 'This script only works with Proxmox Backup Server 3.x.'
     exit 1
 fi
 
@@ -25,14 +25,14 @@ fi
 #
 cat > $PBS_ENTERPRISE_SOURCES_FILE <<EOF
 # Disable pbs-enterprise
-# deb https://enterprise.proxmox.com/debian/pbs bullseye pbs-enterprise
+# deb https://enterprise.proxmox.com/debian/pbs bookworm pbs-enterprise
 EOF
 
 rm /etc/apt/sources.list.d/pbs-enterprise.list
 
 cat >> /etc/apt/sources.list <<EOF
 
-# PBS pbs-no-subscription repository provided by proxmox.com,
+# Proxmox Backup Server pbs-no-subscription repository provided by proxmox.com,
 # NOT recommended for production use
-deb http://download.proxmox.com/debian/pbs bullseye pbs-no-subscription
+deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription
 EOF
