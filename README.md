@@ -280,7 +280,15 @@ Two discussions about the pros and cons of each alternative may be found [here](
 
 ## ZFS
 
-### Update (2023-06)
+### Update (2023-Nov)
+
+Proxmox VE 8.1 uses ZFS 2.2 which finally supports `overlay2` out of the box. 
+
+**If you are using Proxmox VE 8.1 you should always use `--no-docker-volume` (see below) for new containers.** All previous workarounds should be considered deprecated.
+
+
+
+### Update (2023-Jun)
 
 As of Proxmox 7.3 Docker over LXC does uses `overlay2` by default. However there are still problems when using it over ZFS.
 
