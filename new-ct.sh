@@ -44,7 +44,7 @@ function show_usage() {
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)"
     echo_err '    --install-docker    Install docker and docker-compose.'
-    echo_err '    --no-docker-volume  Do not create a new volume for /var/lib/docker.'
+    echo_err '    --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).'
     echo_err "    --docker-volsize    Set container volume size (default = $DEFAULT_DOCKER_VOLSIZE)"
     echo_err "    --help, -h          Display this help message."
     echo_err
@@ -71,6 +71,10 @@ CT_BRIDGE=$DEFAULT_BRIDGE
 CT_INSTALL_DOCKER=0
 CT_USE_DOCKER_VOLUME=1
 CT_DOCKER_VOLSIZE=$DEFAULT_DOCKER_VOLSIZE
+
+# Do not use docker volume from Proxmox VE 8.1 or higher.
+PVE_VERSION=$([[ $(pveversion) =~ ^pve-manager/([0-9]+\.[0-9]+) ]] && echo "${BASH_REMATCH[1]}")
+if [ "$PVE_VERSION" \> "8.0" ]; then CT_USE_DOCKER_VOLUME=0; fi;
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()

@@ -95,6 +95,8 @@ VM_ID=103
 
 ## new-ct-docker-volume
 
+**Deprecated since Proxmox VE 8.1.**
+
 ```
 Usage: ./new-ct-docker-volume.sh <ctid> [--attach]
     <ctid>              Proxmox unique ID of the CT.
@@ -128,7 +130,7 @@ Additional options:
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0)
     --install-docker    Install docker and docker-compose.
-    --no-docker-volume  Do not create a new volume for /var/lib/docker.
+    --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).
     --docker-volsize    Set container volume size (default = 8G)
     --help, -h          Display this help message.
 ```
@@ -282,9 +284,11 @@ Two discussions about the pros and cons of each alternative may be found [here](
 
 ### Update (2023-Nov)
 
-Proxmox VE 8.1 uses ZFS 2.2 which finally supports `overlay2` out of the box. 
+Proxmox VE 8.1 uses ZFS 2.2 which finally supports `overlay2` out of the box.
 
-**If you are using Proxmox VE 8.1 you should always use `--no-docker-volume` (see below) for new containers.** All previous workarounds should be considered deprecated.
+All previous workarounds should be considered deprecated.
+
+Starting with Proxmox VE 8.1 the [`new-ct.sh`](new-ct.sh) script will always assume `--no-docker-volume`, never creating the workaround volume needed for previous Proxmox VE versions (see below).
 
 
 
