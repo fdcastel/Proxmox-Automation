@@ -34,13 +34,13 @@ function show_usage() {
     echo_err '    --ostemplate        The OS template or backup file.'
     echo_err '    --hostname          Set a host name for the container.'
     echo_err '    --password          Sets root password inside container.'
+    echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo_err
     echo_err 'Additional options:'
     echo_err "    --ostype            OS type (default = $DEFAULT_OSTYPE)."
     echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
     echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
-    echo_err '    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).'
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)"
     echo_err '    --install-docker    Install docker and docker-compose.'
@@ -61,11 +61,11 @@ function show_usage() {
 CT_OSTEMPLATE=
 CT_HOSTNAME=
 CT_PASSWORD=
+CT_SSHKEYS=
 CT_OSTYPE=$DEFAULT_OSTYPE
 CT_CORES=$DEFAULT_CORES
 CT_MEMORY=$DEFAULT_MEMORY
 CT_ROOTFS=$DEFAULT_ROOTFS
-CT_SSHKEYS=
 CT_UNPRIVILEGED=1
 CT_BRIDGE=$DEFAULT_BRIDGE
 CT_INSTALL_DOCKER=0
@@ -82,12 +82,12 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --ostemplate) CT_OSTEMPLATE="$2"; shift; shift;;
     --hostname) CT_HOSTNAME="$2"; shift; shift;;
     --password) CT_PASSWORD="$2"; shift; shift;;
+    --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift; shift;;
 
     --ostype) CT_OSTYPE="$2"; shift; shift;;
     --cores) CT_CORES="$2"; shift; shift;;
     --memory) CT_MEMORY="$2"; shift; shift;;
     --rootfs) CT_ROOTFS="$2"; shift; shift;;
-    --sshkey|--sshkeys) CT_SSHKEYS="$2"; shift; shift;;
     --bridge) CT_BRIDGE="$2"; shift; shift;;
     --privileged) CT_UNPRIVILEGED=0; shift;;
 
@@ -104,19 +104,23 @@ CT_ID="$1"; shift
 if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_OSTEMPLATE" ]; then show_usage "You must inform an OS template (--ostemplate)."; fi;
 if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostname)."; fi;
-if [ -z "$CT_PASSWORD" ]; then show_usage "You must inform a password (--password)."; fi;
+if [ -z "$CT_PASSWORD" ] && [ -z "$CT_SSHKEYS" ]; then show_usage "You must inform either a password (--password) or a public ssh key file (--sshkeys)."; fi;
+
+PASSWORD_ARGS=
+if [ -n "$CT_PASSWORD" ]; then 
+    PASSWORD_ARGS="--password $CT_PASSWORD"
+fi;
+
+SSH_KEYS_ARGS=
+if [ -n "$CT_SSHKEYS" ]; then 
+    SSH_KEYS_ARGS="--ssh-public-keys $CT_SSHKEYS"
+fi;
 
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then 
     if [ "$CT_OSTYPE" != 'ubuntu' ] && [ "$CT_OSTYPE" != 'debian' ] && [ "$CT_OSTYPE" != 'alpine' ]; then
         show_usage "Don't know how to install docker on '$OSTYPE'."; 
     fi
-fi;
 
-if [ -n "$CT_SSHKEYS" ]; then 
-    SSH_KEYS_ARGS="--ssh-public-keys $CT_SSHKEYS"
-fi;
-
-if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     # Extra arguments required for Docker
     DOCKER_ARGS="--features keyctl=1,nesting=1"
     
@@ -124,7 +128,6 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
         DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_DOCKER_VOLSIZE $CT_ID)
         DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
     fi;
-        
 fi;
 
 # Create CT
@@ -133,7 +136,6 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --ostype $CT_OSTYPE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
-    --password $CT_PASSWORD \
     --rootfs $CT_ROOTFS \
     --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp \
     --cores $CT_CORES \
@@ -141,6 +143,7 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --onboot 1 \
     --unprivileged $CT_UNPRIVILEGED \
     $DOCKER_ARGS \
+    $PASSWORD_ARGS \
     $SSH_KEYS_ARGS \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
