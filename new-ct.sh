@@ -18,7 +18,7 @@ DEFAULT_DOCKER_VOLSIZE='8G'
 # Functions
 #
 
-function echo_err() { 
+function echo_err() {
     >&2 echo "$@"
 }
 
@@ -107,23 +107,23 @@ if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostna
 if [ -z "$CT_PASSWORD" ] && [ -z "$CT_SSHKEYS" ]; then show_usage "You must inform either a password (--password) or a public ssh key file (--sshkeys)."; fi;
 
 PASSWORD_ARGS=
-if [ -n "$CT_PASSWORD" ]; then 
+if [ -n "$CT_PASSWORD" ]; then
     PASSWORD_ARGS="--password $CT_PASSWORD"
 fi;
 
 SSH_KEYS_ARGS=
-if [ -n "$CT_SSHKEYS" ]; then 
+if [ -n "$CT_SSHKEYS" ]; then
     SSH_KEYS_ARGS="--ssh-public-keys $CT_SSHKEYS"
 fi;
 
-if [ $CT_INSTALL_DOCKER -eq 1 ]; then 
+if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     if [ "$CT_OSTYPE" != 'ubuntu' ] && [ "$CT_OSTYPE" != 'debian' ] && [ "$CT_OSTYPE" != 'alpine' ]; then
-        show_usage "Don't know how to install docker on '$OSTYPE'."; 
+        show_usage "Don't know how to install docker on '$OSTYPE'.";
     fi
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--features keyctl=1,nesting=1"
-    
+
     if [ $CT_USE_DOCKER_VOLUME -eq 1 ]; then
         DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_DOCKER_VOLSIZE $CT_ID)
         DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
@@ -175,38 +175,29 @@ while ! (ping -c 1 -W 1 \$WAIT_FOR_HOST > /dev/null 2>&1); do
 done
 EOF
 
-    if [ "$CT_OSTYPE" == 'ubuntu' ]; then
-        # Install docker -- Source: https://docs.docker.com/engine/install/ubuntu/
-        pct exec $CT_ID -- sh <<EOF
+    if [ "$CT_OSTYPE" == 'ubuntu' ] || [ "$CT_OSTYPE" == 'debian' ]; then
+        # Install docker
+        #   https://docs.docker.com/engine/install/ubuntu/
+        #   https://docs.docker.com/engine/install/debian/
+        pct exec $CT_ID -- sh <<'EOF'
 apt-get update
-apt-get install -y ca-certificates curl gnupg lsb-release
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+. /etc/os-release && curl -fsSL https://download.docker.com/linux/$ID/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+. /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$ID $VERSION_CODENAME stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt-get update -y
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
-EOF
-    fi
-
-    if [ "$CT_OSTYPE" == 'debian' ]; then
-        # Install docker -- Source: https://docs.docker.com/engine/install/debian/
-        pct exec $CT_ID -- sh <<EOF
-apt-get update
-apt-get install -y ca-certificates curl gnupg lsb-release
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update -y
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 EOF
     fi
 
     if [ "$CT_OSTYPE" == 'alpine' ]; then
-        # Install docker -- Source: https://wiki.alpinelinux.org/wiki/Docker    
+        # Install docker
+        #   https://wiki.alpinelinux.org/wiki/Docker
         pct exec $CT_ID -- sh <<EOF
 apk update
-apk add docker docker-compose
-rc-update add docker boot
+apk add docker docker-cli-compose
+rc-update add docker default
 service docker start
 EOF
     fi

@@ -166,13 +166,18 @@ runcmd:
 EOF
 
 if [ $VM_INSTALL_DOCKER -eq 1 ]; then
-    # Source: https://docs.docker.com/engine/install/ubuntu/
+    # Install docker
+    #   https://docs.docker.com/engine/install/ubuntu/
+    #   https://docs.docker.com/engine/install/debian/
     cat >> $CI_USER_FILE_FULL <<'EOF'
- - 'apt install -y apt-transport-https ca-certificates curl gnupg lsb-release'
- - 'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
- - 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list'
- - 'apt update -y'
- - 'apt install -y docker-ce docker-ce-cli containerd.io docker-compose'
+ - 'apt-get update'
+ - 'apt-get install -y ca-certificates curl'
+ - 'install -m 0755 -d /etc/apt/keyrings'
+ - '. /etc/os-release && curl -fsSL https://download.docker.com/linux/$ID/gpg -o /etc/apt/keyrings/docker.asc'
+ - 'chmod a+r /etc/apt/keyrings/docker.asc'
+ - '. /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$ID $VERSION_CODENAME stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null'
+ - 'apt-get update -y'
+ - 'apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
 EOF
 fi
 
