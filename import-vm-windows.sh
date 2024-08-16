@@ -74,6 +74,7 @@ if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
 
 
 # Create VM
+#   Disables balloon driver due poor performance on Windows -- https://tinyurl.com/4kbwa2es
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -85,6 +86,7 @@ qm create $VM_ID --name $VM_NAME \
     --cores $VM_CORES \
     --numa 1 \
     --memory $VM_MEMORY \
+    --balloon 0 \
     --onboot 1
 
 # Disk 0: EFI
