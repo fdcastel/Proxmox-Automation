@@ -106,6 +106,7 @@ qm create $VM_ID --name $VM_NAME \
     --numa 1 \
     --memory $VM_MEMORY \
     --balloon $VM_BALLOON \
+    --vga type=virtio \
     --onboot 1 \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 

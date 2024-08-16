@@ -87,6 +87,7 @@ qm create $VM_ID --name $VM_NAME \
     --numa 1 \
     --memory $VM_MEMORY \
     --balloon 0 \
+    --vga type=virtio \
     --onboot 1
 
 # Disk 0: EFI
