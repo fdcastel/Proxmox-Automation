@@ -100,7 +100,7 @@ qm create $VM_ID --name $VM_NAME \
     --scsihw virtio-scsi-single \
     --agent 1 \
     --bios ovmf \
-    --machine pc-q35-6.0 \
+    --machine q35 \
     --net0 virtio,bridge=vmbr0 \
     --cores $VM_CORES \
     --numa 1 \
