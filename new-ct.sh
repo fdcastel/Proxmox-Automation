@@ -42,10 +42,11 @@ function show_usage() {
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
     echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
-    echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)"
+    echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)."
+    echo_err "    --hwaddr            MAC address for eth0 interface."
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err '    --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).'
-    echo_err "    --docker-volsize    Set container volume size (default = $DEFAULT_DOCKER_VOLSIZE)"
+    echo_err "    --docker-volsize    Set container volume size (default = $DEFAULT_DOCKER_VOLSIZE)."
     echo_err "    --help, -h          Display this help message."
     echo_err
     echo_err "Any additional arguments are passed to 'pct create' command."
@@ -68,6 +69,7 @@ CT_MEMORY=$DEFAULT_MEMORY
 CT_ROOTFS=$DEFAULT_ROOTFS
 CT_UNPRIVILEGED=1
 CT_BRIDGE=$DEFAULT_BRIDGE
+CT_HWADDR=
 CT_INSTALL_DOCKER=0
 CT_USE_DOCKER_VOLUME=1
 CT_DOCKER_VOLSIZE=$DEFAULT_DOCKER_VOLSIZE
@@ -89,6 +91,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --memory) CT_MEMORY="$2"; shift; shift;;
     --rootfs) CT_ROOTFS="$2"; shift; shift;;
     --bridge) CT_BRIDGE="$2"; shift; shift;;
+    --hwaddr) CT_HWADDR="$2"; shift; shift;;
     --privileged) CT_UNPRIVILEGED=0; shift;;
 
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
@@ -130,14 +133,20 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     fi;
 fi;
 
-# Create CT
 CT_INTERFACE_NAME='eth0'
+
+NET0_EXTRA_ARGS=
+if [ -n "$CT_HWADDR" ]; then
+    NET0_EXTRA_ARGS=",hwaddr=$CT_HWADDR"
+fi;
+
+# Create CT
 pct create $CT_ID $CT_OSTEMPLATE \
     --ostype $CT_OSTYPE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
     --rootfs $CT_ROOTFS \
-    --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp \
+    --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp$NET0_EXTRA_ARGS \
     --cores $CT_CORES \
     --memory $CT_MEMORY \
     --onboot 1 \

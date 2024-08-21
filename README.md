@@ -128,10 +128,11 @@ Additional options:
     --rootfs            Use volume as container root (default = local-zfs:120).
     --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
     --privileged        Makes the container run as privileged user (default = unprivileged).
-    --bridge            Use bridge for container networking (default = vmbr0)
+    --bridge            Use bridge for container networking (default = vmbr0).
+    --hwaddr            MAC address for eth0 interface.
     --install-docker    Install docker and docker-compose.
     --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).
-    --docker-volsize    Set container volume size (default = 8G)
+    --docker-volsize    Set container volume size (default = 8G).
     --help, -h          Display this help message.
 ```
 
