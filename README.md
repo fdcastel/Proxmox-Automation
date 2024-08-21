@@ -123,7 +123,7 @@ Usage: ./new-ct.sh <ctid> --ostemplate <file> --hostname <name> --password <pass
 
 Additional options:
     --ostype            OS type (default = ubuntu).
-    --cores             Number of cores per socket (default = 2).
+    --cores             Number of cores per socket (default = unlimited).
     --memory            Amount of RAM for the VM in MB (default = 2048).
     --rootfs            Use volume as container root (default = local-zfs:120).
     --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).

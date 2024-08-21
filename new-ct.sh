@@ -8,7 +8,6 @@ set -e    # Exit when any command fails
 #
 
 DEFAULT_OSTYPE='ubuntu'
-DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
 DEFAULT_ROOTFS='local-zfs:120'
 DEFAULT_BRIDGE='vmbr0'
@@ -38,7 +37,7 @@ function show_usage() {
     echo_err
     echo_err 'Additional options:'
     echo_err "    --ostype            OS type (default = $DEFAULT_OSTYPE)."
-    echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
+    echo_err "    --cores             Number of cores per socket (default = unlimited)."
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
     echo_err "    --rootfs            Use volume as container root (default = $DEFAULT_ROOTFS)."
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
@@ -64,7 +63,7 @@ CT_HOSTNAME=
 CT_PASSWORD=
 CT_SSHKEYS=
 CT_OSTYPE=$DEFAULT_OSTYPE
-CT_CORES=$DEFAULT_CORES
+CT_CORES=
 CT_MEMORY=$DEFAULT_MEMORY
 CT_ROOTFS=$DEFAULT_ROOTFS
 CT_UNPRIVILEGED=1
@@ -119,6 +118,7 @@ if [ -n "$CT_SSHKEYS" ]; then
     SSH_KEYS_ARGS="--ssh-public-keys $CT_SSHKEYS"
 fi;
 
+DOCKER_ARGS=
 if [ $CT_INSTALL_DOCKER -eq 1 ]; then
     if [ "$CT_OSTYPE" != 'ubuntu' ] && [ "$CT_OSTYPE" != 'debian' ] && [ "$CT_OSTYPE" != 'alpine' ]; then
         show_usage "Don't know how to install docker on '$OSTYPE'.";
@@ -131,6 +131,11 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
         DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_DOCKER_VOLSIZE $CT_ID)
         DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
     fi;
+fi;
+
+CORES_ARGS=
+if [ -n "$CT_CORES" ]; then
+    CORES_ARGS="--cores $CT_CORES"
 fi;
 
 CT_INTERFACE_NAME='eth0'
@@ -147,7 +152,7 @@ pct create $CT_ID $CT_OSTEMPLATE \
     --hostname $CT_HOSTNAME \
     --rootfs $CT_ROOTFS \
     --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp$NET0_EXTRA_ARGS \
-    --cores $CT_CORES \
+    $CORES_ARGS \
     --memory $CT_MEMORY \
     --onboot 1 \
     --unprivileged $CT_UNPRIVILEGED \
