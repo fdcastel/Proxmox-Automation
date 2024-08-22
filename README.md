@@ -25,11 +25,9 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
 ## Summary
   - [download-cloud-image](#download-cloud-image)
   - [import-vm-windows](#import-vm-windows)
-  - [new-ct-docker-volume](#new-ct-docker-volume)
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
   - [remove-nag-subscription](#remove-nag-subscription)
-  - [restore-ct](#restore-ct)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
 
@@ -93,25 +91,6 @@ VM_ID=103
 
 
 
-## new-ct-docker-volume
-
-**Deprecated since Proxmox VE 8.1.**
-
-```
-Usage: ./new-ct-docker-volume.sh <ctid> [--attach]
-    <ctid>              Proxmox unique ID of the CT.
-    --volsize           Size of volume (default = 8G).
-    --attach            Attach created volume to CT.
-```
-
-Creates a special `ext4` volume for Docker usage with LXC containers running over `zfs`. 
-
-There's no need to use this script directly. Please see section [Using Docker on LXC](#using-docker-on-lxc) for more information.
-
-Returns the name of created volume.
-
-
-
 ## new-ct
 
 ```
@@ -120,19 +99,17 @@ Usage: ./new-ct.sh <ctid> --ostemplate <file> --hostname <name> --password <pass
     --ostemplate        The OS template or backup file.
     --hostname          Set a host name for the container.
     --password          Sets root password inside container.
+    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
 
 Additional options:
     --ostype            OS type (default = ubuntu).
     --cores             Number of cores per socket (default = unlimited).
     --memory            Amount of RAM for the VM in MB (default = 2048).
     --rootfs            Use volume as container root (default = local-zfs:120).
-    --sshkey[s]         Setup public SSH keys (one key per line, OpenSSH format).
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0).
     --hwaddr            MAC address for eth0 interface.
     --install-docker    Install docker and docker-compose.
-    --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).
-    --docker-volsize    Set container volume size (default = 8G).
     --help, -h          Display this help message.
 ```
 
@@ -153,8 +130,7 @@ pveam download local $UBUNTU_IMAGE
 # Creates an Ubuntu LXC container with a 120G storage, "my-key.pub" ssh key and Docker installed.
 CT_ID=310
 CT_NAME='ct-ubuntu'
-CT_PASSWORD='uns@f3p@ss0rd'
-./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --password $CT_PASSWORD --sshkey ~/.ssh/my-key.pub --rootfs local-zfs:120 --install-docker
+./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --sshkey ~/.ssh/my-key.pub --rootfs local-zfs:120 --install-docker
 ```
 
 
@@ -208,34 +184,6 @@ Usage: ./remove-nag-subscription.sh
 ```
 
 Removes Proxmox VE / Proxmox Backup Server nag dialog from web UI.
-
-
-
-## restore-ct
-
-```
-Usage: ./restore-ct.sh <ctid> --from <file> [OPTIONS]
-    <ctid>              Proxmox unique ID of the CT.
-    --from              The backup file.
-
-Additional options:
-    --rootfs            Use volume as container root (default = local-zfs:120).
-    --restore-docker    Restore docker zfs volumes.
-    --help, -h          Display this help message.
-```
-
-Restores a CT from a backup. 
-
-Use `--restore-docker` to rebuild docker `zfs` volume for `/var/lib/docker`.
-
-### Example
-
-```bash
-# Local backups are stored into '/var/lib/vz/dump/'
-CT_ID=321
-FROM='/var/lib/vz/dump/vzdump-lxc-321-2022_12_22-18_21_59.tar.zst'
-./restore-ct.sh $CT_ID --from $FROM --restore-docker
-```
 
 
 

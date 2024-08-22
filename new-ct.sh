@@ -11,7 +11,6 @@ DEFAULT_OSTYPE='ubuntu'
 DEFAULT_MEMORY=2048
 DEFAULT_ROOTFS='local-zfs:120'
 DEFAULT_BRIDGE='vmbr0'
-DEFAULT_DOCKER_VOLSIZE='8G'
 
 #
 # Functions
@@ -44,8 +43,6 @@ function show_usage() {
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)."
     echo_err "    --hwaddr            MAC address for eth0 interface."
     echo_err '    --install-docker    Install docker and docker-compose.'
-    echo_err '    --no-docker-volume  Do not create a new volume for /var/lib/docker (default for PVE 8.1+).'
-    echo_err "    --docker-volsize    Set container volume size (default = $DEFAULT_DOCKER_VOLSIZE)."
     echo_err "    --help, -h          Display this help message."
     echo_err
     echo_err "Any additional arguments are passed to 'pct create' command."
@@ -70,12 +67,6 @@ CT_UNPRIVILEGED=1
 CT_BRIDGE=$DEFAULT_BRIDGE
 CT_HWADDR=
 CT_INSTALL_DOCKER=0
-CT_USE_DOCKER_VOLUME=1
-CT_DOCKER_VOLSIZE=$DEFAULT_DOCKER_VOLSIZE
-
-# Do not use docker volume from Proxmox VE 8.1 or higher.
-PVE_VERSION=$([[ $(pveversion) =~ ^pve-manager/([0-9]+\.[0-9]+) ]] && echo "${BASH_REMATCH[1]}")
-if [ "$PVE_VERSION" \> "8.0" ]; then CT_USE_DOCKER_VOLUME=0; fi;
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -94,8 +85,6 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --privileged) CT_UNPRIVILEGED=0; shift;;
 
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
-    --no-docker-volume) CT_USE_DOCKER_VOLUME=0; shift;;
-    --docker-volsize) CT_DOCKER_VOLSIZE="$2"; shift; shift;;
 
     -h|--help) show_usage;;
     *) POSITIONAL_ARGS+=("$1"); shift;;
@@ -126,11 +115,6 @@ if [ $CT_INSTALL_DOCKER -eq 1 ]; then
 
     # Extra arguments required for Docker
     DOCKER_ARGS="--features keyctl=1,nesting=1"
-
-    if [ $CT_USE_DOCKER_VOLUME -eq 1 ]; then
-        DOCKER_VOL=$(./new-ct-docker-volume.sh --volsize $CT_DOCKER_VOLSIZE $CT_ID)
-        DOCKER_ARGS="--features keyctl=1,nesting=1 --mp0 local-zfs:$DOCKER_VOL,mp=/var/lib/docker,backup=0"
-    fi;
 fi;
 
 CORES_ARGS=
