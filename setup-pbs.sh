@@ -3,15 +3,6 @@
 PBS_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pbs-enterprise.list'
 
 #
-# Check PBS version
-#
-proxmox-backup-manager version | grep 'proxmox-backup-server 3'
-if [ $? -ne 0 ]; then
-    echo 'This script only works with Proxmox Backup Server 3.x.'
-    exit 1
-fi
-
-#
 # Run-only-once check
 #
 FIRST_LINE=$(head -1 $PBS_ENTERPRISE_SOURCES_FILE)
