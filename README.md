@@ -53,9 +53,9 @@ Returns the full path of downloaded image.
 ### Example
 
 ```bash
-# Download Ubuntu 22.04 LTS image
-UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
-pveam download local $UBUNTU_IMAGE
+# Download Debian 12 image
+DEBIAN_URL='https://cloud.debian.org/images/cloud/bookworm/20240901-1857/debian-12-genericcloud-amd64-20240901-1857.qcow2'
+./download-cloud-image.sh $DEBIAN_URL
 ```
 
 
@@ -122,8 +122,8 @@ Any additional arguments are passed to `pct create` command. Please see [`pct` c
 ### Example
 
 ```bash
-# Download Ubuntu 22.04 LTS image
-UBUNTU_IMAGE='ubuntu-22.04-standard_22.04-1_amd64.tar.zst'
+# Download Ubuntu 24.04 LTS image
+UBUNTU_IMAGE='ubuntu-24.04-standard_24.04-2_amd64.tar.zst'
 UBUNTU_TEMPLATE="local:vztmpl/$UBUNTU_IMAGE"
 pveam download local $UBUNTU_IMAGE
 
@@ -166,9 +166,9 @@ Any additional arguments are passed to `qm create` command. Please see [`qm` com
 ### Example
 
 ```bash
-# Download Ubuntu 22.04 LTS image
-URL='https://cloud-images.ubuntu.com/releases/jammy/release/ubuntu-22.04-server-cloudimg-amd64.img'
-UBUNTU_IMAGE_FILE=$(./download-cloud-image.sh $URL --no-clobber)
+# Download Ubuntu 24.04 LTS image
+UBUNTU_URL='https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img'
+UBUNTU_IMAGE_FILE=$(./download-cloud-image.sh $UBUNTU_URL --no-clobber)
 
 # Creates an Ubuntu VM with "my-key.pub" ssh key and Docker installed.
 VM_ID=201
@@ -259,7 +259,4 @@ Proxmox VE 8.1 uses ZFS 2.2 which finally supports `overlay2` out of the box.
 
 All [previous workarounds](docker-zfs-legacy.md) should be considered deprecated.
 
-Starting with Proxmox VE 8.1 the [`new-ct.sh`](new-ct.sh) script will always assume `--no-docker-volume`, never creating the workaround volume needed for previous Proxmox VE versions (see below).
-
-
-
+Starting with Proxmox VE 8.1 the [`new-ct.sh`](new-ct.sh) script will always assume `--no-docker-volume`, never creating the workaround volume needed for previous Proxmox VE versions.
