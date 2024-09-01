@@ -54,7 +54,7 @@ Returns the full path of downloaded image.
 
 ```bash
 # Download Debian 12 image
-DEBIAN_URL='https://cloud.debian.org/images/cloud/bookworm/20240901-1857/debian-12-genericcloud-amd64-20240901-1857.qcow2'
+DEBIAN_URL='https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2'
 ./download-cloud-image.sh $DEBIAN_URL
 ```
 
@@ -127,10 +127,10 @@ UBUNTU_IMAGE='ubuntu-24.04-standard_24.04-2_amd64.tar.zst'
 UBUNTU_TEMPLATE="local:vztmpl/$UBUNTU_IMAGE"
 pveam download local $UBUNTU_IMAGE
 
-# Creates an Ubuntu LXC container with a 120G storage, "my-key.pub" ssh key and Docker installed.
+# Creates an Ubuntu LXC container with a 120G storage, "id_rsa.pub" ssh key and Docker installed.
 CT_ID=310
 CT_NAME='ct-ubuntu'
-./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --sshkey ~/.ssh/my-key.pub --rootfs local-zfs:120 --install-docker
+./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --sshkey ~/.ssh/id_rsa.pub --rootfs local-zfs:120 --install-docker
 ```
 
 
@@ -163,16 +163,26 @@ Additionally, you can use `--install-docker` to also install `docker` into virtu
 
 Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
 
-### Example
+### Examples
 
 ```bash
 # Download Ubuntu 24.04 LTS image
 UBUNTU_URL='https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img'
 UBUNTU_IMAGE_FILE=$(./download-cloud-image.sh $UBUNTU_URL --no-clobber)
 
-# Creates an Ubuntu VM with "my-key.pub" ssh key and Docker installed.
-VM_ID=201
-./new-vm.sh $VM_ID --image $UBUNTU_IMAGE_FILE --name 'vm-ubuntu' --sshkey '~/.ssh/my-key.pub' --install-docker
+# Creates an Ubuntu VM with "id_rsa.pub" ssh key and Docker installed.
+VM_ID=401
+./new-vm.sh $VM_ID --image $UBUNTU_IMAGE_FILE --name 'vm-ubuntu' --sshkey ~/.ssh/id_rsa.pub --install-docker
+```
+
+```bash
+# Download Debian 12 image
+DEBIAN_URL='https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2'
+DEBIAN_IMAGE_FILE=$(./download-cloud-image.sh $DEBIAN_URL --no-clobber)
+
+# Creates a Debian VM with "id_rsa.pub" ssh key and Docker installed.
+VM_ID=402
+./new-vm.sh $VM_ID --image $DEBIAN_IMAGE_FILE --name 'vm-debian' --sshkey '~/.ssh/id_rsa.pub' --install-docker
 ```
 
 
