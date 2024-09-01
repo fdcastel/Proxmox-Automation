@@ -140,7 +140,7 @@ if [ -n "$VM_CIPASSWORD" ]; then
 fi;
 
 if [ -n "$VM_SSHKEYS" ]; then 
-    qm set $VM_ID --sshkey ~/.ssh/fdcastel.pub
+    qm set $VM_ID --sshkey $VM_SSHKEYS
 fi;
   
 qm cloudinit dump $VM_ID user > $CI_USER_FILE_FULL
