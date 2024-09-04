@@ -122,7 +122,8 @@ qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
 qm resize $VM_ID scsi1 $VM_DISKSIZE
 
 # Disk 2: cloud-init
-qm set $VM_ID --ide2 local-zfs:cloudinit 
+#   Do not use --ide or Debian 'genericcloud' image will not work.
+qm set $VM_ID --scsi2 local-zfs:cloudinit 
 
 
 
