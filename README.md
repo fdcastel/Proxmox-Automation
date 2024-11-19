@@ -85,8 +85,8 @@ Returns the full path of downloaded template.
 ```bash
 # Download OpenWRT template
 OPENWRT_URL='https://images.linuxcontainers.org/images/openwrt/23.05/amd64/default/20241109_11:57/rootfs.tar.xz'
-OPENWRT_TEMPLATE='openwrt-23.05-amd64-default-20241109.tar.xz'
-./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE
+OPENWRT_TEMPLATE_NAME='openwrt-23.05-amd64-default-20241109.tar.xz'
+./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE_NAME
 ```
 
 
@@ -141,6 +141,7 @@ Additional options:
     --bridge            Use bridge for container networking (default = vmbr0).
     --hwaddr            MAC address for eth0 interface.
     --install-docker    Install docker and docker-compose.
+    --no-start          Do not start the container after creation.
     --help, -h          Display this help message.
 ```
 
@@ -150,7 +151,9 @@ Additionally, you can use `--install-docker` to also install `docker` into conta
 
 Any additional arguments are passed to `pct create` command. Please see [`pct` command documentation](https://pve.proxmox.com/pve-docs/pct.1.html) for more information about the options.
 
-### Example
+### Examples
+
+#### Ubuntu
 
 ```bash
 # Download Ubuntu 24.04 LTS image
@@ -161,8 +164,88 @@ pveam download local $UBUNTU_IMAGE
 # Creates an Ubuntu LXC container with a 120G storage, "id_rsa.pub" ssh key and Docker installed.
 CT_ID=310
 CT_NAME='ct-ubuntu'
-./new-ct.sh $CT_ID --memory 1024 --ostemplate $UBUNTU_TEMPLATE --hostname $CT_NAME --sshkey ~/.ssh/id_rsa.pub --rootfs local-zfs:120 --install-docker
+./new-ct.sh $CT_ID \
+    --memory 1024 \
+    --ostemplate $UBUNTU_TEMPLATE \
+    --hostname $CT_NAME \
+    --sshkey ~/.ssh/id_rsa.pub \
+    --rootfs local-zfs:120 \
+    --install-docker
 ```
+
+#### OpenWRT
+
+```bash
+# Download OpenWRT image
+OPENWRT_URL='https://images.linuxcontainers.org/images/openwrt/23.05/amd64/default/20241109_11:57/rootfs.tar.xz'
+OPENWRT_TEMPLATE_NAME='openwrt-23.05-amd64-default-20241109.tar.xz'
+OPENWRT_TEMPLATE=$(./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE_NAME)
+
+# Creates an OpenWRT privileged LXC container with a 8G storage, two named network interfaces and sets root password.
+CT_ID=311
+CT_NAME='ct-openwrt'
+CT_PASSWORD='uns@f3'
+CT_LAN_IFNAME='lan'
+CT_LAN_BRIDGE='vmbrloc0'    # Do NOT use your LAN here! (will start a DHCP server on it).
+CT_WAN_IFNAME='wan'
+CT_WAN_BRIDGE='vmbr0'
+./new-ct.sh $CT_ID \
+    --ostype unmanaged \
+    --arch amd64 \
+    --memory 1024 \
+    --ostemplate $OPENWRT_TEMPLATE \
+    --hostname $CT_NAME \
+    --password $CT_PASSWORD \
+    --rootfs local-zfs:8 \
+    --privileged \
+    --no-start \
+    --net0 name=$CT_LAN_IFNAME,bridge=$CT_LAN_BRIDGE \
+    --net1 name=$CT_WAN_IFNAME,bridge=$CT_WAN_BRIDGE,ip=dhcp,ip6=auto
+
+# Load initial OpenWRT configuration
+CT_ROOT_MOUNTPOINT="/rpool/data/subvol-$CT_ID-disk-0"
+cat > "$CT_ROOT_MOUNTPOINT/etc/uci-defaults/80-init" << OUTER_EOF
+#!/bin/sh
+
+# System
+uci batch << EOF
+set system.@system[0].hostname='{{ openwrt.hostname }}'
+commit system
+EOF
+
+# Network interfaces
+uci batch << EOF
+set network.lan=interface
+set network.lan.ifname='$CT_LAN_IFNAME'
+set network.lan.proto='static'
+set network.lan.ipaddr='192.168.1.1'
+set network.lan.netmask='255.255.255.0'
+
+set network.wan=interface
+set network.wan.ifname='$CT_WAN_IFNAME'
+set network.wan.proto='dhcp'
+set network.wan.zone='wan'
+commit network
+EOF
+OUTER_EOF
+
+# Set passwd for LUCI
+cat > "$CT_ROOT_MOUNTPOINT/etc/uci-defaults/81-passwd" << OUTER_EOF
+#!/bin/sh
+
+passwd << EOF
+$CT_PASSWORD
+$CT_PASSWORD
+EOF
+OUTER_EOF
+
+# Start the LXC Container
+pct start $CT_ID
+```
+
+OpenWRT offers extensive configuration options through the [UCI system](https://openwrt.org/docs/guide-user/base-system/uci). 
+
+More information about the `uci-defaults` folder can be found [here](https://openwrt.org/docs/guide-developer/uci-defaults).
 
 
 

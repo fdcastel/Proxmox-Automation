@@ -43,6 +43,7 @@ function show_usage() {
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)."
     echo_err "    --hwaddr            MAC address for eth0 interface."
     echo_err '    --install-docker    Install docker and docker-compose.'
+    echo_err '    --no-start          Do not start the container after creation.'
     echo_err "    --help, -h          Display this help message."
     echo_err
     echo_err "Any additional arguments are passed to 'pct create' command."
@@ -67,6 +68,7 @@ CT_UNPRIVILEGED=1
 CT_BRIDGE=$DEFAULT_BRIDGE
 CT_HWADDR=
 CT_INSTALL_DOCKER=0
+CT_NO_START=0
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -85,6 +87,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --privileged) CT_UNPRIVILEGED=0; shift;;
 
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
+    --no-start) CT_NO_START=1; shift;;
 
     -h|--help) show_usage;;
     *) POSITIONAL_ARGS+=("$1"); shift;;
@@ -96,6 +99,7 @@ if [ -z "$CT_ID" ]; then show_usage "You must inform a CT id."; fi;
 if [ -z "$CT_OSTEMPLATE" ]; then show_usage "You must inform an OS template (--ostemplate)."; fi;
 if [ -z "$CT_HOSTNAME" ]; then show_usage "You must inform a host name (--hostname)."; fi;
 if [ -z "$CT_PASSWORD" ] && [ -z "$CT_SSHKEYS" ]; then show_usage "You must inform either a password (--password) or a public ssh key file (--sshkeys)."; fi;
+if [ $CT_INSTALL_DOCKER -eq 1 ] && [ $CT_NO_START -eq 1 ]; then show_usage "Options --install-docker and --no-start are mutually exclusive. Docker installation requires the container to be running."; fi;
 
 PASSWORD_ARGS=
 if [ -n "$CT_PASSWORD" ]; then
@@ -150,22 +154,17 @@ pct create $CT_ID $CT_OSTEMPLATE \
 #   pveversion: pve-manager/7.0-11/63d82f4e (running kernel: 5.11.22-4-pve)
 pct set $CT_ID --timezone host
 
+if [ $CT_NO_START -eq 1 ]; then exit 0; fi;
+
 # Start container
 pct start $CT_ID
 
- # Update /etc/issue
-pct exec $CT_ID sh <<EOF
-cat >/etc/issue <<'EOC'
-\S{PRETTY_NAME} \n \l
-
-$CT_INTERFACE_NAME: \4{$CT_INTERFACE_NAME}
-EOC
-EOF
+if [ $CT_INSTALL_DOCKER -eq 0 ]; then exit 0; fi;
 
 # Install docker
-if [ $CT_INSTALL_DOCKER -eq 1 ]; then
-    # Wait for network -- Source: https://stackoverflow.com/a/24963234
-    pct exec $CT_ID -- sh <<EOF
+
+# Wait for network -- Source: https://stackoverflow.com/a/24963234
+pct exec $CT_ID -- sh <<EOF
 WAIT_FOR_HOST=google.com
 while ! (ping -c 1 -W 1 \$WAIT_FOR_HOST > /dev/null 2>&1); do
     echo "Waiting for \$WAIT_FOR_HOST - network interface might be down..."
@@ -173,11 +172,11 @@ while ! (ping -c 1 -W 1 \$WAIT_FOR_HOST > /dev/null 2>&1); do
 done
 EOF
 
-    if [ "$CT_OSTYPE" == 'ubuntu' ] || [ "$CT_OSTYPE" == 'debian' ]; then
-        # Install docker
-        #   https://docs.docker.com/engine/install/ubuntu/
-        #   https://docs.docker.com/engine/install/debian/
-        pct exec $CT_ID -- sh <<'EOF'
+if [ "$CT_OSTYPE" == 'ubuntu' ] || [ "$CT_OSTYPE" == 'debian' ]; then
+    # Install docker
+    #   https://docs.docker.com/engine/install/ubuntu/
+    #   https://docs.docker.com/engine/install/debian/
+    pct exec $CT_ID -- sh <<'EOF'
 apt-get update
 apt-get install -y ca-certificates curl
 install -m 0755 -d /etc/apt/keyrings
@@ -187,24 +186,23 @@ chmod a+r /etc/apt/keyrings/docker.asc
 apt-get update -y
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 EOF
-    fi
+fi
 
-    if [ "$CT_OSTYPE" == 'alpine' ]; then
-        # Install docker
-        #   https://wiki.alpinelinux.org/wiki/Docker
-        pct exec $CT_ID -- sh <<EOF
+if [ "$CT_OSTYPE" == 'alpine' ]; then
+    # Install docker
+    #   https://wiki.alpinelinux.org/wiki/Docker
+    pct exec $CT_ID -- sh <<EOF
 apk update
 apk add docker docker-cli-compose
 rc-update add docker default
 service docker start
 EOF
-    fi
+fi
 
-    # Assert that storage driver is 'overlay2'
-    pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
-    if [ $? -ne 0 ]; then
-        tput setaf 1
-        echo_err 'WARNING: Docker storage driver is not "overlay2".'
-        tput sgr0
-    fi
+# Assert that storage driver is 'overlay2'
+pct exec $CT_ID docker info | grep -i 'storage driver: overlay2' > /dev/null
+if [ $? -ne 0 ]; then
+    tput setaf 1
+    echo_err 'WARNING: Docker storage driver is not "overlay2".'
+    tput sgr0
 fi
