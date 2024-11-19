@@ -60,6 +60,37 @@ DEBIAN_URL='https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-gene
 
 
 
+## download-cloud-template
+
+```
+Usage: ./download-cloud-template.sh <url> [OPTIONS]
+    <url>                Url of template to download.
+    --filename, -f       Renames the downloaded file.
+    --no-clobber, -nc    Doesn't overwrite an existing template.
+    --help, -h           Display this help message.
+```
+
+Downloads a LXC template from given `url` into `/var/lib/vz/template/cache/` folder. 
+
+You can use `--filename` to rename the resulting file.
+
+If the template already exists it will not be downloaded again.
+
+Please note that this script DOES NOT uncompress the resulting file. LXCs templates can be used in compressed format.
+
+Returns the full path of downloaded template.
+
+### Example
+
+```bash
+# Download OpenWRT template
+OPENWRT_URL='https://images.linuxcontainers.org/images/openwrt/23.05/amd64/default/20241109_11:57/rootfs.tar.xz'
+OPENWRT_TEMPLATE='openwrt-23.05-amd64-default-20241109.tar.xz'
+./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE
+```
+
+
+
 ## import-vm-windows
 
 ```
