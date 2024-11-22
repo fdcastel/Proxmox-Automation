@@ -29,7 +29,7 @@ function show_usage() {
     echo_err
     echo_err "Usage: $0 <vmid> --image <file> --name <name> [OPTIONS]"
     echo_err '    <vmid>              Proxmox unique ID of the VM.'
-    echo_err '    --image             Path to image file.'
+    echo_err '    --image             Source image to import (.qcow2 | .vhdx).'
     echo_err '    --name              A name for the VM.'
     echo_err
     echo_err 'Additional options:'
@@ -74,7 +74,8 @@ if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
 
 
 # Create VM
-#   Disables balloon driver due poor performance on Windows -- https://tinyurl.com/4kbwa2es
+#   Disables balloon driver due poor performance on Windows
+#   Source: https://pve.proxmox.com/wiki/Performance_Tweaks#Do_not_use_the_Virtio_Balloon_Driver
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -94,8 +95,8 @@ qm create $VM_ID --name $VM_NAME \
 pvesm alloc local-zfs $VM_ID vm-$VM_ID-efi 1M
 qm set $VM_ID --efidisk0 local-zfs:vm-$VM_ID-efi
 
-# Disk 1: Main disk
-qm importdisk $VM_ID $VM_IMAGE local-zfs --format raw
+# Disk 1: Main disk.
+qm importdisk $VM_ID $VM_IMAGE local-zfs --format 'raw'
 qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
     --boot c \
     --bootdisk scsi1

@@ -96,7 +96,7 @@ OPENWRT_TEMPLATE_NAME='openwrt-23.05-amd64-default-20241109.tar.xz'
 ```
 Usage: ./import-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
     <vmid>              Proxmox unique ID of the VM.
-    --image             Path to image file.
+    --image             Source image to import (.vhdx | .qcow2).
     --name              A name for the VM.
 
 Additional options:
@@ -108,16 +108,16 @@ Additional options:
 
 Creates a VM from an existing Hyper-V Windows VM. For _Generation 2_ (UEFI) types only.
 
-Image must be in `qcow2` format. You may use [Convert-VhdxToQcow2](https://github.com/fdcastel/Hyper-V-Automation#convert-vhdxtoqcow2) (on Windows) to convert a VHDX.
+The image must be in `vhdx` or `qcow2` format and it will be _converted_ to `raw` image format during the import process. The original image file remains unaltered.
 
 Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
 
 ### Example
 
 ```bash
-# Creates a Windows VM from a vhdx converted to qcow2.
+# Creates a Windows VM from a vhdx (does not modify the vhdx).
 VM_ID=103
-./import-vm-windows.sh $VM_ID --image '/tmp/TstWindows.qcow2' --name 'tst-windows'
+./import-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'tst-windows'
 ```
 
 
