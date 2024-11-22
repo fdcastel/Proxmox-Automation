@@ -106,4 +106,11 @@ qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
 # Start VM
 qm start $VM_ID
 
+# Wait for qemu-guest-agent
+echo "Waiting for VM $VM_ID..."
+until qm agent $VM_ID ping
+do
+    sleep 2
+done
+
 echo 'All done!'
