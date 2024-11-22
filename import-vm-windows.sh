@@ -38,6 +38,8 @@ function show_usage() {
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
     echo_err "    --help, -h          Display this help message."
     echo_err
+    echo_err "Any additional arguments are passed to 'qm create' command."
+    echo_err
     exit 1
 }
 
@@ -61,12 +63,11 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --memory) VM_MEMORY="$2"; shift; shift;;
 
     -h|--help) show_usage;;
-    -*|--*) show_usage "Unknown option: $1";;
     *) POSITIONAL_ARGS+=("$1"); shift;;
 esac; done
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-VM_ID="$1"
+VM_ID="$1"; shift
 if [ -z "$VM_ID" ]; then show_usage "You must inform a VM id."; fi;
 if [ -z "$VM_IMAGE" ]; then show_usage "You must inform a image file (--image)."; fi;
 if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
@@ -76,6 +77,8 @@ if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
 # Create VM
 #   Disables balloon driver due poor performance on Windows
 #   Source: https://pve.proxmox.com/wiki/Performance_Tweaks#Do_not_use_the_Virtio_Balloon_Driver
+VM_BALLOON=0
+
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -87,9 +90,10 @@ qm create $VM_ID --name $VM_NAME \
     --cores $VM_CORES \
     --numa 1 \
     --memory $VM_MEMORY \
-    --balloon 0 \
+    --balloon $VM_BALLOON \
     --vga type=virtio \
-    --onboot 1
+    --onboot 1 \
+    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Disk 0: EFI
 pvesm alloc local-zfs $VM_ID vm-$VM_ID-efi 1M

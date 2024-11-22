@@ -110,7 +110,9 @@ Creates a VM from an existing Hyper-V Windows VM. For _Generation 2_ (UEFI) type
 
 The image must be in `vhdx` or `qcow2` format and it will be _converted_ to `raw` image format during the import process. The original image file remains unaltered.
 
-Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+
+
 
 ### Example
 
