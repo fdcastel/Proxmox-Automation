@@ -112,6 +112,8 @@ The image must be in `vhdx` or `qcow2` format and it will be _converted_ to `raw
 
 Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
 
+It's recommended that the `vhdx` image includes the installation of [Windows VirtIO Drivers](https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers) and the [QEMU Guest Agent](https://pve.proxmox.com/wiki/Qemu-guest-agent). Please refer to [Hyper-V Automation](https://github.com/fdcastel/Hyper-V-Automation#windows-prepare-a-vhdx-for-qemu-migration) project for more information.
+
 
 
 ### Example
@@ -120,6 +122,18 @@ Any additional arguments are passed to `qm create` command. Please see [`qm` com
 # Creates a Windows VM from a vhdx (does not modify the vhdx).
 VM_ID=103
 ./import-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'tst-windows'
+
+# Enables ping and Remote Desktop (requires QEMU Guest Agent)
+qm guest exec $VM_ID -- powershell -c $(cat << 'EOF'
+    <# Enable ICMP Echo Request (Ping) for IPv4 and IPv6 #>
+    Get-NetFirewallRule -Name 'FPS-ICMP*' | Set-NetFirewallRule -Enabled:True ;
+
+    <# Enable Remote Desktop (more secure) #>
+    $tsSettings = Get-WmiObject -Class 'Win32_TerminalServiceSetting' -Namespace root\cimv2\terminalservices ;
+    $tsSettings.SetAllowTsConnections(1, 1) ;
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+EOF
+)
 ```
 
 
