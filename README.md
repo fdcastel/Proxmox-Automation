@@ -24,9 +24,9 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
 
 ## Summary
   - [download-cloud-image](#download-cloud-image)
-  - [new-vm-windows](#new-vm-windows)
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
+  - [new-vm-windows](#new-vm-windows)
   - [remove-nag-subscription](#remove-nag-subscription)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
@@ -87,79 +87,6 @@ Returns the full path of downloaded template.
 OPENWRT_URL='https://images.linuxcontainers.org/images/openwrt/23.05/amd64/default/20241109_11:57/rootfs.tar.xz'
 OPENWRT_TEMPLATE_NAME='openwrt-23.05-amd64-default-20241109.tar.xz'
 ./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE_NAME
-```
-
-
-
-## new-vm-windows
-
-```
-Usage: ./new-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
-    <vmid>              Proxmox unique ID of the VM.
-    --image             Source image to import (.vhdx | .qcow2).
-    --name              A name for the VM.
-
-Additional options:
-    --ostype            Guest OS type (default = win11).
-    --cores             Number of cores per socket (default = 2).
-    --memory            Amount of RAM for the VM in MB (default = 2048).
-    --no-start          Do not start the VM after creation.
-    --no-guest          Do not wait for QEMU Guest Agent after start.
-    --help, -h          Display this help message.
-```
-
-Creates a VM from a `vhdx` image. For _Generation 2_ (UEFI) types only.
-
-The image will be _imported_ as a `raw` image format. The original `vhdx` file remains unaltered.
-
-Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
-
-After creation, the script will start the VM and wait for the QEMU Guest Agent to be responsive. These actions can be skipped using the `--no-start` and `--no-guest` options, respectively.
-
-It's recommended that the `vhdx` includes the following:
-
-- [Windows VirtIO Drivers](https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers) (recommended)
-- [QEMU Guest Agent](https://pve.proxmox.com/wiki/Qemu-guest-agent) (recommended)
-- [Cloudbase-Init](https://cloudbase.it/cloudbase-init/) (optional)
-
-Please refer to [Hyper-V Automation](https://github.com/fdcastel/Hyper-V-Automation#examples) project for more information.
-
-
-
-### Examples
-
-Creates a Windows VM from a [`vhdx` template](https://github.com/fdcastel/Hyper-V-Automation#create-a-windows-vhdx-template-for-qemu) previously created with [`New-VHDXFromWindowsImage.ps1`](https://github.com/fdcastel/Hyper-V-Automation#new-vhdxfromwindowsimage-) and initializes the Administrator password via CloudBase-Init.
-
-```bash
-VM_ID=103
-./new-vm-windows.sh $VM_ID \
-    --image '/tmp/Server2025Standard-template.vhdx' \
-    --name 'tst-win2025' \
-    --ide2 local-zfs:cloudinit \
-    --cipassword 'Unsaf3@AnySp33d!'
-
-# You can run any commands on VM with "qm guest exec":
-qm guest exec $VM_ID -- powershell -c $(cat << 'EOF'
-    <# Enable ICMP Echo Request (Ping) for IPv4 and IPv6 #>
-    Get-NetFirewallRule -Name 'FPS-ICMP*' | Set-NetFirewallRule -Enabled:True ;
-
-    <# Enable Remote Desktop (more secure) #>
-    $tsSettings = Get-WmiObject -Class 'Win32_TerminalServiceSetting' -Namespace root\cimv2\terminalservices ;
-    $tsSettings.SetAllowTsConnections(1, 1) ;
-    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-EOF
-)
-```
-
-Creates a Windows VM from a [previously prepared `vhdx`](https://github.com/fdcastel/Hyper-V-Automation#prepare-a-vhdx-for-qemu-migration) of an existing Hyper-V VM.
-
-```bash
-VM_ID=104
-./new-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'TstWindows'
-
-# Query ipv4 addresses
-qm guest cmd $VM_ID network-get-interfaces | \
-    jq -r '.[] | .["ip-addresses"][] | select(.["ip-address-type"]=="ipv4") | .["ip-address"]'
 ```
 
 
@@ -339,6 +266,84 @@ DEBIAN_IMAGE_FILE=$(./download-cloud-image.sh $DEBIAN_URL --no-clobber)
 # Creates a Debian VM with "id_rsa.pub" ssh key and Docker installed.
 VM_ID=402
 ./new-vm.sh $VM_ID --image $DEBIAN_IMAGE_FILE --name 'vm-debian' --sshkey '~/.ssh/id_rsa.pub' --install-docker
+```
+
+
+
+## new-vm-windows
+
+```
+Usage: ./new-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
+    <vmid>              Proxmox unique ID of the VM.
+    --image             Source image to import (.vhdx | .qcow2).
+    --name              A name for the VM.
+
+Additional options:
+    --ostype            Guest OS type (default = win11).
+    --cores             Number of cores per socket (default = 2).
+    --memory            Amount of RAM for the VM in MB (default = 2048).
+    --no-start          Do not start the VM after creation.
+    --no-guest          Do not wait for QEMU Guest Agent after start.
+    --help, -h          Display this help message.
+```
+
+Creates a VM from a `vhdx` image. For _Generation 2_ (UEFI) types only.
+
+The image will be _imported_ as a `raw` image format. The original `vhdx` file remains unaltered.
+
+Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+
+After creation, the script will start the VM and wait for the QEMU Guest Agent to be responsive. These actions can be skipped using the `--no-start` and `--no-guest` options, respectively.
+
+It's recommended that the `vhdx` includes the following:
+
+- [Windows VirtIO Drivers](https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers) (recommended)
+- [QEMU Guest Agent](https://pve.proxmox.com/wiki/Qemu-guest-agent) (recommended)
+- [Cloudbase-Init](https://cloudbase.it/cloudbase-init/) (optional)
+
+Please refer to [Hyper-V Automation](https://github.com/fdcastel/Hyper-V-Automation#examples) project for more information.
+
+
+
+### Examples
+
+Creates a Windows VM from a [`vhdx` template](https://github.com/fdcastel/Hyper-V-Automation#create-a-windows-vhdx-template-for-qemu) previously created with [`New-VHDXFromWindowsImage.ps1`](https://github.com/fdcastel/Hyper-V-Automation#new-vhdxfromwindowsimage-) and initializes the Administrator password via CloudBase-Init.
+
+```bash
+VM_ID=103
+./new-vm-windows.sh $VM_ID \
+    --image '/tmp/Server2025Standard-template.vhdx' \
+    --name 'tst-win2025' \
+    --ide2 local-zfs:cloudinit \
+    --cipassword 'Unsaf3@AnySp33d!'
+
+# You can run any commands on VM with "qm guest exec":
+qm guest exec $VM_ID -- powershell -c $(cat << 'EOF'
+    <# Enables ICMP Echo Request (ping) for IPv4 and IPv6 #>
+    Get-NetFirewallRule -Name 'FPS-ICMP*' | Set-NetFirewallRule -Enabled:True ;
+
+    <# Enables Remote Desktop (more secure) #>
+    $tsSettings = Get-WmiObject -Class 'Win32_TerminalServiceSetting' -Namespace root\cimv2\terminalservices ;
+    $tsSettings.SetAllowTsConnections(1, 1) ;
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop" ;
+
+    <# Enables SSH (Server 2025 only) #>
+    Start-Service sshd ;
+    Set-Service -Name sshd -StartupType 'Automatic' ;
+    Set-NetFirewallRule OpenSSH-Server-In-TCP -Profile Any
+EOF
+)
+```
+
+Creates a Windows VM from a [previously prepared `vhdx`](https://github.com/fdcastel/Hyper-V-Automation#prepare-a-vhdx-for-qemu-migration) of an existing Hyper-V VM.
+
+```bash
+VM_ID=104
+./new-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'TstWindows'
+
+# Query ipv4 addresses
+qm guest cmd $VM_ID network-get-interfaces | \
+    jq -r '.[] | .["ip-addresses"][] | select(.["ip-address-type"]=="ipv4") | .["ip-address"]'
 ```
 
 
