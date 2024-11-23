@@ -154,14 +154,12 @@ pct create $CT_ID $CT_OSTEMPLATE \
 #   pveversion: pve-manager/7.0-11/63d82f4e (running kernel: 5.11.22-4-pve)
 pct set $CT_ID --timezone host
 
-if [ $CT_NO_START -eq 1 ]; then exit 0; fi;
-
 # Start container
+if [ $CT_NO_START -eq 1 ]; then exit 0; fi;
 pct start $CT_ID
 
-if [ $CT_INSTALL_DOCKER -eq 0 ]; then exit 0; fi;
-
 # Install docker
+if [ $CT_INSTALL_DOCKER -eq 0 ]; then exit 0; fi;
 
 # Wait for network -- Source: https://stackoverflow.com/a/24963234
 pct exec $CT_ID -- sh <<EOF

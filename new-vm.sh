@@ -42,6 +42,8 @@ function show_usage() {
     echo_err "    --disksize          Size of VM main disk (default = $DEFAULT_DISKSIZE)."
     echo_err '    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.'
     echo_err '    --install-docker    Install docker and docker-compose.'
+    echo_err "    --no-start          Do not start the VM after creation."
+    echo_err "    --no-guest          Do not wait for QEMU Guest Agent after start."
     echo_err "    --help, -h          Display this help message."
     echo_err
     echo_err "Any additional arguments are passed to 'qm create' command."
@@ -64,6 +66,8 @@ VM_MEMORY=$DEFAULT_MEMORY
 VM_DISKSIZE=$DEFAULT_DISKSIZE
 VM_BALLOON=0
 VM_INSTALL_DOCKER=0
+VM_NO_START=0
+VM_NO_GUEST=0
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -79,6 +83,9 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --disksize) VM_DISKSIZE="$2"; shift; shift;;
     --balloon) VM_BALLOON="$2"; shift; shift;;
     --install-docker) VM_INSTALL_DOCKER=1; shift;;
+
+    --no-start) VM_NO_START=1; shift;;
+    --no-guest) VM_NO_GUEST=1; shift;;
 
     -h|--help) show_usage;;
     *) POSITIONAL_ARGS+=("$1"); shift;;
@@ -186,17 +193,19 @@ fi
 
 
 # Start VM
-qm start $VM_ID
+if [ $VM_NO_START -eq 0 ]; then 
+    qm start $VM_ID
+fi;
 
 # Wait for qemu-guest-agent
-echo "Waiting for VM $VM_ID..."
-until qm agent $VM_ID ping
-do
-    sleep 2
-done
+if [ $VM_NO_GUEST -eq 0 ]; then 
+    echo "Waiting for VM $VM_ID..."
+    until qm agent $VM_ID ping
+    do
+        sleep 2
+    done
+fi;
 
 # Remove custom cloud-init configuration
 qm set $VM_ID --delete cicustom
 rm $CI_USER_FILE_FULL
-
-echo 'All done!'

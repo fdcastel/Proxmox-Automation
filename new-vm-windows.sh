@@ -36,6 +36,8 @@ function show_usage() {
     echo_err "    --ostype            Guest OS type (default = $DEFAULT_OSTYPE)."
     echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
+    echo_err "    --no-start          Do not start the VM after creation."
+    echo_err "    --no-guest          Do not wait for QEMU Guest Agent after start."
     echo_err "    --help, -h          Display this help message."
     echo_err
     echo_err "Any additional arguments are passed to 'qm create' command."
@@ -51,6 +53,8 @@ function show_usage() {
 VM_OSTYPE=$DEFAULT_OSTYPE
 VM_CORES=$DEFAULT_CORES
 VM_MEMORY=$DEFAULT_MEMORY
+VM_NO_START=0
+VM_NO_GUEST=0
 
 # Parse arguments -- https://stackoverflow.com/a/14203146/33244
 POSITIONAL_ARGS=()
@@ -61,6 +65,9 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --ostype) VM_OSTYPE="$2"; shift; shift;;
     --cores) VM_CORES="$2"; shift; shift;;
     --memory) VM_MEMORY="$2"; shift; shift;;
+
+    --no-start) VM_NO_START=1; shift;;
+    --no-guest) VM_NO_GUEST=1; shift;;
 
     -h|--help) show_usage;;
     *) POSITIONAL_ARGS+=("$1"); shift;;
@@ -108,13 +115,13 @@ qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
 
 
 # Start VM
+if [ $VM_NO_START -eq 1 ]; then exit 0; fi;
 qm start $VM_ID
 
 # Wait for qemu-guest-agent
+if [ $VM_NO_GUEST -eq 1 ]; then exit 0; fi;
 echo "Waiting for VM $VM_ID..."
 until qm agent $VM_ID ping
 do
     sleep 2
 done
-
-echo 'All done!'
