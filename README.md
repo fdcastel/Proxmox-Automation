@@ -412,7 +412,7 @@ To avoid this, you may use a [`.pxarexclude` file](https://pbs.proxmox.com/docs/
 
 ```bash
 cat > /.pxarexclude <<EOF
-var/lib/docker/
+/var/lib/docker/
 EOF
 ```
 
