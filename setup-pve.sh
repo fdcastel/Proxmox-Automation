@@ -1,39 +1,27 @@
 #!/bin/bash
 
-PVE_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pve-enterprise.list'
+PVE_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pve-enterprise.sources'
+PVE_NO_SUBSCRIPTION_SOURCES_FILE='/etc/apt/sources.list.d/proxmox.sources'
+CEPH_SOURCES_FILE='/etc/apt/sources.list.d/ceph.sources'
 
-#
 # Check PVE version
-#
-pveversion | grep 'pve-manager/8'
+pveversion | grep 'pve-manager/9'
 if [ $? -ne 0 ]; then
-    echo 'This script only works with Proxmox VE 8.x.'
+    echo 'This script only works with Proxmox VE 9.x.'
     exit 1
 fi
 
-#
-# Run-only-once check
-#
-FIRST_LINE=$(head -1 $PVE_ENTERPRISE_SOURCES_FILE)
-if [ "$FIRST_LINE" == '# Disable pve-enterprise' ]; then
-    echo 'This script must be run only once.'
-    exit 1
-fi
+# Remove Proxmox VE Enterprise Repository (subscription-only) sources
+rm -rf $PVE_ENTERPRISE_SOURCES_FILE
 
-#
-# Remove enterprise (subscription-only) sources
-#
-cat > $PVE_ENTERPRISE_SOURCES_FILE <<EOF
-# Disable pve-enterprise
-# deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
-EOF
+# Remove Ceph sources
+rm -rf $CEPH_SOURCES_FILE
 
-rm /etc/apt/sources.list.d/pve-enterprise.list
-rm /etc/apt/sources.list.d/ceph.list
-
-cat >> /etc/apt/sources.list <<EOF
-
-# Proxmox VE pve-no-subscription repository provided by proxmox.com,
-# NOT recommended for production use
-deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+# Add Proxmox VE No-Subscription Repository sources
+cat > $PVE_NO_SUBSCRIPTION_SOURCES_FILE <<EOF
+Types: deb
+URIs: http://download.proxmox.com/debian/pve
+Suites: trixie
+Components: pve-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
