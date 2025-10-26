@@ -1,29 +1,16 @@
 #!/bin/bash
 
-PBS_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pbs-enterprise.list'
+PBS_ENTERPRISE_SOURCES_FILE='/etc/apt/sources.list.d/pbs-enterprise.sources'
+PBS_NO_SUBSCRIPTION_SOURCES_FILE='/etc/apt/sources.list.d/pbs-no-subscription.sources'
 
-#
-# Run-only-once check
-#
-FIRST_LINE=$(head -1 $PBS_ENTERPRISE_SOURCES_FILE)
-if [ "$FIRST_LINE" == '# Disable pbs-enterprise' ]; then
-    echo 'This script must be run only once.'
-    exit 1
-fi
+# Remove Proxmox Backup Server Enterprise Repository (subscription-only) sources
+rm -rf $PBS_ENTERPRISE_SOURCES_FILE
 
-#
-# Remove enterprise (subscription-only) sources
-#
-cat > $PBS_ENTERPRISE_SOURCES_FILE <<EOF
-# Disable pbs-enterprise
-# deb https://enterprise.proxmox.com/debian/pbs bookworm pbs-enterprise
-EOF
-
-rm /etc/apt/sources.list.d/pbs-enterprise.list
-
-cat >> /etc/apt/sources.list <<EOF
-
-# Proxmox Backup Server pbs-no-subscription repository provided by proxmox.com,
-# NOT recommended for production use
-deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription
+# Add Proxmox Backup Server No-Subscription Repository sources
+cat > $PBS_NO_SUBSCRIPTION_SOURCES_FILE <<EOF
+Types: deb
+URIs: http://download.proxmox.com/debian/pbs
+Suites: trixie
+Components: pbs-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
