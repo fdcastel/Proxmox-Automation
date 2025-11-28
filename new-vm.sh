@@ -119,23 +119,24 @@ qm create $VM_ID --name $VM_NAME \
     --balloon $VM_BALLOON \
     --vga type=virtio \
     --onboot 1 \
+    --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
+    --tpmstate0 "$VM_STORAGE:0,version=v2.0" \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Disk 0: EFI
-pvesm alloc $VM_STORAGE $VM_ID vm-$VM_ID-efi 1M
-qm set $VM_ID --efidisk0 $VM_STORAGE:vm-$VM_ID-efi
 
-# Disk 1: Main disk
+# Disk 1: TPM
+
+# Disk 2: Main disk
 qm importdisk $VM_ID $VM_IMAGE $VM_STORAGE
-qm set $VM_ID --scsi1 $VM_STORAGE:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
+qm set $VM_ID --scsi2 $VM_STORAGE:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
     --boot c \
-    --bootdisk scsi1
-qm resize $VM_ID scsi1 $VM_DISKSIZE
+    --bootdisk scsi2
+qm resize $VM_ID scsi2 $VM_DISKSIZE
 
-# Disk 2: cloud-init
+# Disk 3: cloud-init
 #   Do not use --ide or Debian 'genericcloud' image will not work.
-qm set $VM_ID --scsi2 $VM_STORAGE:cloudinit 
-
+qm set $VM_ID --scsi3 $VM_STORAGE:cloudinit 
 
 
 # Initialize VM via cloud-init
