@@ -7,6 +7,7 @@ set -e    # Exit when any command fails
 # Constants
 #
 
+DEFAULT_STORAGE='local-zfs'
 DEFAULT_OSTYPE='win11'
 DEFAULT_CORES=2
 DEFAULT_MEMORY=2048
@@ -36,6 +37,7 @@ function show_usage() {
     echo_err "    --ostype            Guest OS type (default = $DEFAULT_OSTYPE)."
     echo_err "    --cores             Number of cores per socket (default = $DEFAULT_CORES)."
     echo_err "    --memory            Amount of RAM for the VM in MB (default = $DEFAULT_MEMORY)."
+    echo_err "    --storage           Storage to use for VM disks (default = $DEFAULT_STORAGE)."
     echo_err "    --no-start          Do not start the VM after creation."
     echo_err "    --no-guest          Do not wait for QEMU Guest Agent after start."
     echo_err "    --help, -h          Display this help message."
@@ -53,6 +55,7 @@ function show_usage() {
 VM_OSTYPE=$DEFAULT_OSTYPE
 VM_CORES=$DEFAULT_CORES
 VM_MEMORY=$DEFAULT_MEMORY
+VM_STORAGE=$DEFAULT_STORAGE
 VM_NO_START=0
 VM_NO_GUEST=0
 
@@ -65,6 +68,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --ostype) VM_OSTYPE="$2"; shift; shift;;
     --cores) VM_CORES="$2"; shift; shift;;
     --memory) VM_MEMORY="$2"; shift; shift;;
+    --storage) VM_STORAGE="$2"; shift; shift;;
 
     --no-start) VM_NO_START=1; shift;;
     --no-guest) VM_NO_GUEST=1; shift;;
@@ -103,12 +107,12 @@ qm create $VM_ID --name $VM_NAME \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Disk 0: EFI
-pvesm alloc local-zfs $VM_ID vm-$VM_ID-efi 1M
-qm set $VM_ID --efidisk0 local-zfs:vm-$VM_ID-efi
+pvesm alloc $VM_STORAGE $VM_ID vm-$VM_ID-efi 1M
+qm set $VM_ID --efidisk0 $VM_STORAGE:vm-$VM_ID-efi
 
 # Disk 1: Main disk.
-qm importdisk $VM_ID $VM_IMAGE local-zfs --format 'raw'
-qm set $VM_ID --scsi1 local-zfs:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
+qm importdisk $VM_ID $VM_IMAGE $VM_STORAGE --format 'raw'
+qm set $VM_ID --scsi1 $VM_STORAGE:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
     --boot c \
     --bootdisk scsi1
 
