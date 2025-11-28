@@ -80,16 +80,19 @@ set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
 VM_ID="$1"; shift
 if [ -z "$VM_ID" ]; then show_usage "You must inform a VM id."; fi;
-if [ -z "$VM_IMAGE" ]; then show_usage "You must inform a image file (--image)."; fi;
+if [ -z "$VM_IMAGE" ]; then show_usage "You must inform an image file (--image)."; fi;
 if [ -z "$VM_NAME" ]; then show_usage "You must inform a VM name (--name)."; fi;
 
 
 
-# Create VM
-#   Disables balloon driver due poor performance on Windows
+# Disables balloon driver due poor performance on Windows
 #   Source: https://pve.proxmox.com/wiki/Performance_Tweaks#Do_not_use_the_Virtio_Balloon_Driver
 VM_BALLOON=0
 
+# Create VM
+#   Disk 0: EFI
+#   Disk 1: TPM
+#   Disk 2: Main drive (imported from image)
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -106,17 +109,10 @@ qm create $VM_ID --name $VM_NAME \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
     --tpmstate0 "$VM_STORAGE:0,version=v2.0" \
-    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
-
-# Disk 0: EFI
-
-# Disk 1: TPM
-
-# Disk 2: Main disk.
-qm importdisk $VM_ID $VM_IMAGE $VM_STORAGE --format 'raw'
-qm set $VM_ID --scsi2 $VM_STORAGE:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
+    --scsi2 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
     --boot c \
-    --bootdisk scsi2
+    --bootdisk scsi2 \
+    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Start VM
 if [ $VM_NO_START -eq 1 ]; then exit 0; fi;

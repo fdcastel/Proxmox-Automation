@@ -314,7 +314,7 @@ VM_ID=103
 ./new-vm-windows.sh $VM_ID \
     --image '/tmp/Server2025Standard-template.vhdx' \
     --name 'tst-win2025' \
-    --ide2 local-zfs:cloudinit \
+    --ide3 local-zfs:cloudinit \
     --cipassword 'Unsaf3@AnySp33d!'
 
 # You can run any commands on VM with "qm guest exec":

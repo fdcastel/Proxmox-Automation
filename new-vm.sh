@@ -105,6 +105,10 @@ if [ -z "$VM_CIPASSWORD" ] && [ -z "$VM_SSHKEYS" ]; then show_usage "You must in
 
 
 # Create VM
+#   Disk 0: EFI
+#   Disk 1: TPM
+#   Disk 2: Main drive (imported from image)
+#   Disk 3: cloud-init (Do not use --ide or Debian 'genericcloud' image will not work.)
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -121,23 +125,12 @@ qm create $VM_ID --name $VM_NAME \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
     --tpmstate0 "$VM_STORAGE:0,version=v2.0" \
-    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
-
-# Disk 0: EFI
-
-# Disk 1: TPM
-
-# Disk 2: Main disk
-qm importdisk $VM_ID $VM_IMAGE $VM_STORAGE
-qm set $VM_ID --scsi2 $VM_STORAGE:vm-$VM_ID-disk-0,discard=on,iothread=1,ssd=1 \
+    --scsi2 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
+    --scsi3 $VM_STORAGE:cloudinit \
     --boot c \
-    --bootdisk scsi2
+    --bootdisk scsi2 \
+    "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 qm resize $VM_ID scsi2 $VM_DISKSIZE
-
-# Disk 3: cloud-init
-#   Do not use --ide or Debian 'genericcloud' image will not work.
-qm set $VM_ID --scsi3 $VM_STORAGE:cloudinit 
-
 
 # Initialize VM via cloud-init
 mkdir -p /var/lib/vz/snippets/
