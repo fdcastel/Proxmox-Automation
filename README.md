@@ -26,7 +26,7 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
   - [download-cloud-image](#download-cloud-image)
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
-  - [new-vm-windows](#new-vm-windows)
+  - [import-vm-windows](#import-vm-windows)
   - [remove-nag-subscription](#remove-nag-subscription)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
@@ -270,10 +270,10 @@ VM_ID=402
 
 
 
-## new-vm-windows
+## import-vm-windows
 
 ```
-Usage: ./new-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
+Usage: ./import-vm-windows.sh <vmid> --image <file> --name <name> [OPTIONS]
     <vmid>              Proxmox unique ID of the VM.
     --image             Source image to import (.vhdx | .qcow2).
     --name              A name for the VM.
@@ -311,7 +311,7 @@ Creates a Windows VM from a [`vhdx` template](https://github.com/fdcastel/Hyper-
 
 ```bash
 VM_ID=103
-./new-vm-windows.sh $VM_ID \
+./import-vm-windows.sh $VM_ID \
     --image '/tmp/Server2025Standard-template.vhdx' \
     --name 'tst-win2025' \
     --ide3 local-zfs:cloudinit \
@@ -339,7 +339,7 @@ Creates a Windows VM from a [previously prepared `vhdx`](https://github.com/fdca
 
 ```bash
 VM_ID=104
-./new-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'TstWindows'
+./import-vm-windows.sh $VM_ID --image '/tmp/TstWindows.vhdx' --name 'TstWindows'
 
 # Query ipv4 addresses
 qm guest cmd $VM_ID network-get-interfaces | \
