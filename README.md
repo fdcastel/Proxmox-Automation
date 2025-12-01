@@ -24,8 +24,12 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
 
 ## Summary
   - [download-cloud-image](#download-cloud-image)
+  - [download-cloud-template](#download-cloud-template)
+  - [download-verified-file](#download-verified-file)
+  - [download-virtio-image](#download-virtio-image)
   - [new-ct](#new-ct)
   - [new-vm](#new-vm)
+  - [new-vm-windows](#new-vm-windows)
   - [import-vm-windows](#import-vm-windows)
   - [remove-nag-subscription](#remove-nag-subscription)
   - [setup-pbs](#setup-pbs)
@@ -87,6 +91,65 @@ Returns the full path of downloaded template.
 OPENWRT_URL='https://images.linuxcontainers.org/images/openwrt/23.05/amd64/default/20241109_11:57/rootfs.tar.xz'
 OPENWRT_TEMPLATE_NAME='openwrt-23.05-amd64-default-20241109.tar.xz'
 ./download-cloud-template.sh $OPENWRT_URL --filename $OPENWRT_TEMPLATE_NAME
+```
+
+
+
+## download-verified-file
+
+```
+Usage: ./download-verified-file.sh <url> <sha256> [target_directory] [OPTIONS]
+    <url>                Url of file to download.
+    <sha256>             Expected SHA-256 hash of the file.
+    [target_directory]   Directory to save the file (default: /tmp).
+    --help, -h           Display this help message.
+```
+
+Downloads a file from given `url` into the specified directory (defaults to `/tmp`) and verifies its SHA-256 hash.
+
+If the file already exists and its hash matches, it will not be downloaded again.
+
+If the file exists but the hash does not match, it will be re-downloaded and overwritten.
+
+Returns the full path of downloaded file.
+
+### Example
+
+```bash
+# Download Windows Server 2022 (Evaluation) with hash verification
+WIN_SERVER_URL='https://software-download.microsoft.com/download/sg/20348.169.210806-2348.fe_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso'
+WIN_SERVER_SHA256='4f1457c4fe14ce48c9b2324924f33ca4f0470475e6da851b39ccbf98f44e7852'
+./download-verified-file.sh $WIN_SERVER_URL $WIN_SERVER_SHA256
+
+# Download to a specific directory
+./download-verified-file.sh $WIN_SERVER_URL $WIN_SERVER_SHA256 /var/lib/vz/template/iso
+```
+
+
+
+## download-virtio-image
+
+```
+Usage: ./download-virtio-image.sh [output_path] [OPTIONS]
+    output_path          Path to save the ISO (directory or full file path). Defaults to /var/lib/vz/template/iso/.
+    --no-clobber, -nc    Doesn't overwrite an existing ISO.
+    --help, -h           Display this help message.
+```
+
+Downloads the VirtIO drivers ISO from Fedora's repository into the specified folder or path.
+
+If the ISO already exists it will not be downloaded again unless `--no-clobber` is not used.
+
+Returns the full path of downloaded ISO.
+
+### Example
+
+```bash
+# Download VirtIO drivers ISO to default location
+./download-virtio-image.sh
+
+# Download to a custom directory
+./download-virtio-image.sh /tmp/
 ```
 
 
@@ -267,6 +330,77 @@ DEBIAN_IMAGE_FILE=$(./download-cloud-image.sh $DEBIAN_URL --no-clobber)
 VM_ID=402
 ./new-vm.sh $VM_ID --image $DEBIAN_IMAGE_FILE --name 'vm-debian' --sshkey '~/.ssh/id_rsa.pub' --install-docker
 ```
+
+
+
+## new-vm-windows
+
+```
+Usage: ./new-vm-windows.sh <vmid> --iso <file> --name <name> --cipassword <password> [OPTIONS]
+    <vmid>              Proxmox unique ID of the VM.
+    --iso               Path to Windows ISO file.
+    --name              A name for the VM (hostname).
+    --cipassword        Password for the Administrator account.
+
+Additional options:
+    --ostype            Guest OS type (default = win11).
+    --cores             Number of cores per socket (default = 2).
+    --memory            Amount of RAM for the VM in MB (default = 4096).
+    --storage           Storage to use for VM disks (default = local-zfs).
+    --disksize          Size of VM main disk (default = 120G).
+    --image-index       Windows image index to install (default = 1).
+    --virtio-iso        Path to VirtIO drivers ISO (default = /var/lib/vz/template/iso/virtio-win.iso).
+    --no-start          Do not start the VM after creation.
+    --no-guest          Do not wait for QEMU Guest Agent after start.
+    --help, -h          Display this help message.
+```
+
+Creates a Windows VM from a Windows installation ISO with automated unattended installation.
+
+The script automatically:
+- Extracts and configures VirtIO drivers for optimal performance
+- Generates an `autounattend.xml` file for automated Windows setup
+- Installs QEMU Guest Agent during setup
+- Configures the Administrator password
+- Cleans up installation media after setup completes
+
+Requires the VirtIO drivers ISO. Download it with `./download-virtio-image.sh`.
+
+Any additional arguments are passed to `qm create` command. Please see [`qm` command documentation](https://pve.proxmox.com/pve-docs/qm.1.html) for more information about the options.
+
+### Examples
+
+```bash
+# Download VirtIO drivers ISO (required)
+./download-virtio-image.sh
+
+# Create Windows Server 2022 VM
+VM_ID=501
+WINDOWS_ISO='/var/lib/vz/template/iso/windows-server-2022.iso'
+./new-vm-windows.sh $VM_ID \
+    --iso $WINDOWS_ISO \
+    --name 'win-server-2022' \
+    --cipassword 'YourP@ssw0rd!' \
+    --memory 8192 \
+    --cores 4 \
+    --disksize 200G
+```
+
+```bash
+# Create Windows 11 VM with custom settings
+VM_ID=502
+WINDOWS_ISO='/var/lib/vz/template/iso/windows-11.iso'
+./new-vm-windows.sh $VM_ID \
+    --iso $WINDOWS_ISO \
+    --name 'win11-desktop' \
+    --cipassword 'YourP@ssw0rd!' \
+    --ostype win11 \
+    --memory 8192 \
+    --cores 4 \
+    --image-index 1
+```
+
+**Note:** The `--image-index` parameter selects which Windows edition to install from the ISO (e.g., 1 for Standard, 2 for Datacenter). Use `dism /Get-ImageInfo /ImageFile:X:\sources\install.wim` on Windows to see available indices in your ISO.
 
 
 
