@@ -58,7 +58,7 @@ TEMP_DIR="/tmp/iso-mod-$$"
 
 cleanup() {
     if mountpoint -q "$TEMP_DIR/mount" 2>/dev/null; then
-        sudo umount "$TEMP_DIR/mount" 2>/dev/null || true
+        umount "$TEMP_DIR/mount" 2>/dev/null || true
     fi
     [ -d "$TEMP_DIR" ] && rm -rf "$TEMP_DIR"
 }
@@ -79,14 +79,14 @@ echo "Volume label: $VOLUME_LABEL"
 
 # Mount the ISO
 echo "Mounting ISO..."
-sudo mount -o loop,ro "$ISO_FILE" "$TEMP_DIR/mount"
+mount -o loop,ro "$ISO_FILE" "$TEMP_DIR/mount"
 
 # Copy contents to writable directory
 echo "Copying ISO contents..."
 cp -r "$TEMP_DIR/mount" "$TEMP_DIR/contents"
 
 # Unmount early
-sudo umount "$TEMP_DIR/mount"
+umount "$TEMP_DIR/mount"
 
 # Check for no-prompt EFI image
 EFI_DIR="$TEMP_DIR/contents/efi/microsoft/boot"
