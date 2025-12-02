@@ -1,6 +1,6 @@
 $LogPath = "C:\Windows\Panther\win-cloud-init.log"
 Start-Transcript -Path $LogPath -Append
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 Write-Host "Starting Cloud-Init Network Configuration (configdrive2 format)..."
 
@@ -79,28 +79,24 @@ if (Test-Path $metaDataPath) {
             $publicKeys | Out-File -FilePath $authorizedKeysPath -Encoding ASCII -Force
             
             # Set proper permissions (only SYSTEM and Administrators should have access) -- https://superuser.com/a/1531769
-            try {
-                $acl = Get-Acl $authorizedKeysPath
-                $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance
-                
-                # Remove all existing rules
-                $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
-                
-                # Add SYSTEM with Full Control
-                $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                    "NT AUTHORITY\SYSTEM", "FullControl", "Allow")
-                $acl.AddAccessRule($systemRule)
-                
-                # Add Administrators with Full Control
-                $adminRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                    "BUILTIN\Administrators", "FullControl", "Allow")
-                $acl.AddAccessRule($adminRule)
-                
-                Set-Acl -Path $authorizedKeysPath -AclObject $acl
-                Write-Host "Set proper ACL permissions on authorized_keys file"
-            } catch {
-                Write-Warning "Failed to set ACL permissions: $_"
-            }
+            $acl = Get-Acl $authorizedKeysPath
+            $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance
+            
+            # Remove all existing rules
+            $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
+            
+            # Add SYSTEM with Full Control
+            $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                "NT AUTHORITY\SYSTEM", "FullControl", "Allow")
+            $acl.AddAccessRule($systemRule)
+            
+            # Add Administrators with Full Control
+            $adminRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                "BUILTIN\Administrators", "FullControl", "Allow")
+            $acl.AddAccessRule($adminRule)
+            
+            Set-Acl -Path $authorizedKeysPath -AclObject $acl
+            Write-Host "Set proper ACL permissions on authorized_keys file"
             
             Write-Host "SSH public keys installed successfully"
         } else {
@@ -277,92 +273,64 @@ foreach ($iface in $interfaces) {
     }
     
     # Configure IP address
-    try {
-        if ($gateway) {
-            $isOnLink = Test-GatewayOnLink -IpAddress $ip -Prefix $prefix -Gateway $gateway
-            
-            if ($isOnLink) {
-                Write-Host "Configuring with on-link gateway..."
-                New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
-                    -IPAddress $ip `
-                    -PrefixLength $prefix `
-                    -DefaultGateway $gateway `
-                    -AddressFamily IPv4 `
-                    -ErrorAction Stop | Out-Null
-            } else {
-                Write-Host "Configuring with off-link gateway..."
-                
-                # Add IP address without gateway
-                New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
-                    -IPAddress $ip `
-                    -PrefixLength $prefix `
-                    -AddressFamily IPv4 `
-                    -ErrorAction Stop | Out-Null
-                
-                # Add host route to gateway
-                Write-Host "Adding host route to gateway $gateway..."
-                try {
-                    New-NetRoute -DestinationPrefix "$gateway/32" `
-                        -InterfaceIndex $adapter.InterfaceIndex `
-                        -NextHop "0.0.0.0" `
-                        -ErrorAction Stop | Out-Null
-                    Write-Host "Host route added successfully"
-                } catch {
-                    Write-Warning "Failed to add host route: $_"
-                }
-                
-                # Add default route via gateway
-                Write-Host "Adding default route via $gateway..."
-                try {
-                    New-NetRoute -DestinationPrefix "0.0.0.0/0" `
-                        -InterfaceIndex $adapter.InterfaceIndex `
-                        -NextHop $gateway `
-                        -ErrorAction Stop | Out-Null
-                    Write-Host "Default route added successfully"
-                } catch {
-                    Write-Warning "Failed to add default route: $_"
-                }
-            }
-        } else {
-            Write-Host "Configuring without gateway..."
+    if ($gateway) {
+        $isOnLink = Test-GatewayOnLink -IpAddress $ip -Prefix $prefix -Gateway $gateway
+        
+        if ($isOnLink) {
+            Write-Host "Configuring with on-link gateway..."
             New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
                 -IPAddress $ip `
                 -PrefixLength $prefix `
-                -AddressFamily IPv4 `
-                -ErrorAction Stop | Out-Null
+                -DefaultGateway $gateway `
+                -AddressFamily IPv4 | Out-Null
+        } else {
+            Write-Host "Configuring with off-link gateway..."
+            
+            # Add IP address without gateway
+            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
+                -IPAddress $ip `
+                -PrefixLength $prefix `
+                -AddressFamily IPv4 | Out-Null
+            
+            # Add host route to gateway
+            Write-Host "Adding host route to gateway $gateway..."
+            New-NetRoute -DestinationPrefix "$gateway/32" `
+                -InterfaceIndex $adapter.InterfaceIndex `
+                -NextHop "0.0.0.0" | Out-Null
+            Write-Host "Host route added successfully"
+            
+            # Add default route via gateway
+            Write-Host "Adding default route via $gateway..."
+            New-NetRoute -DestinationPrefix "0.0.0.0/0" `
+                -InterfaceIndex $adapter.InterfaceIndex `
+                -NextHop $gateway | Out-Null
+            Write-Host "Default route added successfully"
         }
-        
-        Write-Host "IP configuration applied successfully"
-    } catch {
-        Write-Error "Failed to configure IP address: $_"
-        continue
+    } else {
+        Write-Host "Configuring without gateway..."
+        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
+            -IPAddress $ip `
+            -PrefixLength $prefix `
+            -AddressFamily IPv4 | Out-Null
     }
+    
+    Write-Host "IP configuration applied successfully"
     
     # Configure DNS
     $dns = $iface.DnsServers
     
     if ($dns.Count -gt 0) {
         Write-Host "Configuring DNS: $($dns -join ', ')"
-        try {
-            Set-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex `
-                -ServerAddresses $dns `
-                -ErrorAction Stop
-        } catch {
-            Write-Error "Failed to configure DNS: $_"
-        }
+        Set-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex `
+            -ServerAddresses $dns
     }
     
-    # Configure DNS search domain for LAN interface (2nd interface, eth1)
-    if ($searchDomain -and $iface.Name -eq "eth1") {
+    # Configure DNS search domain for all interfaces
+    if ($searchDomain) {
         Write-Host "Configuring DNS search domain: $searchDomain"
-        try {
-            Set-DnsClient -InterfaceIndex $adapter.InterfaceIndex `
-                -ConnectionSpecificSuffix $searchDomain `
-                -ErrorAction Stop
-            Write-Host "DNS search domain configured successfully"
-        } catch {
-            Write-Error "Failed to configure DNS search domain: $_"
-        }
+        Set-DnsClient -InterfaceIndex $adapter.InterfaceIndex `
+            -ConnectionSpecificSuffix $searchDomain
+        Write-Host "DNS search domain configured successfully"
     }
 }
 
