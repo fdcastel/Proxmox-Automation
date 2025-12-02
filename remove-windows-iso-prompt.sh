@@ -52,7 +52,6 @@ if [ -n "$2" ]; then
     OUTPUT_FILE="$2"
 else
     OUTPUT_FILE="${ISO_FILE%.iso}.noprompt.iso"
-    OUTPUT_FILE="${OUTPUT_FILE%.ISO}.noprompt.iso"
 fi
 
 TEMP_DIR="/tmp/iso-mod-$$"
