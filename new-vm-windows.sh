@@ -56,7 +56,6 @@ function show_usage() {
 
 function cleanup() {
     if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
-        umount "$TEMP_DIR/drivers" 2>/dev/null || true
         rm -rf "$TEMP_DIR"
     fi
     if [ -n "$UNATTENDED_ISO" ] && [ -f "$UNATTENDED_ISO" ]; then
@@ -130,46 +129,7 @@ trap cleanup EXIT
 
 # Create temporary directory
 TEMP_DIR="/tmp/win-vm-setup-$$"
-mkdir -p "$TEMP_DIR/drivers"
 mkdir -p "$TEMP_DIR/iso_root"
-
-# Extract VirtIO drivers
-echo_err "Extracting VirtIO drivers..."
-mount -o loop,ro "$VM_VIRTIO_ISO" "$TEMP_DIR/drivers"
-
-# List of drivers to copy
-DRIVERS=(
-    "Balloon"
-    "fwcfg"
-    "NetKVM"
-    "pvpanic"
-    "qemupciserial"
-    "viofs"
-    "viogpudo"
-    "vioinput"
-    "viomem"
-    "viorng"
-    "vioscsi"
-    "vioserial"
-    "viostor"
-)
-
-for driver in "${DRIVERS[@]}"; do
-    dest_name=$(echo "$driver" | tr '[:upper:]' '[:lower:]')
-    mkdir -p "$TEMP_DIR/iso_root/drivers/$dest_name"
-    cp -r "$TEMP_DIR/drivers/$driver/2k22/amd64/"* "$TEMP_DIR/iso_root/drivers/$dest_name/" 2>/dev/null || \
-    cp -r "$TEMP_DIR/drivers/$driver/w11/amd64/"* "$TEMP_DIR/iso_root/drivers/$dest_name/" 2>/dev/null || true
-done
-
-# qxldod is special (w10)
-mkdir -p "$TEMP_DIR/iso_root/drivers/qxldod"
-cp -r "$TEMP_DIR/drivers/qxldod/w10/amd64/"* "$TEMP_DIR/iso_root/drivers/qxldod/" 2>/dev/null || true
-
-# Copy QEMU Guest Agent installer
-mkdir -p "$TEMP_DIR/iso_root/guest-agent"
-cp "$TEMP_DIR/drivers/guest-agent/qemu-ga-x86_64.msi" "$TEMP_DIR/iso_root/guest-agent/"
-
-umount "$TEMP_DIR/drivers"
 
 # Copy Cloud-Init Network Script
 echo_err "Copying win-cloud-init.ps1..."
@@ -183,19 +143,6 @@ else
     echo_err "Please ensure win-cloud-init.ps1 is in the same directory as this script."
     exit 1
 fi
-
-# Create SetupComplete.cmd
-echo_err "Creating SetupComplete.cmd..."
-cat > "$TEMP_DIR/iso_root/SetupComplete.cmd" <<'SETUPCMD'
-@echo off
-echo Configuring network from cloud-init...
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1
-echo Network configuration completed with exit code: %ERRORLEVEL%
-
-echo Installing QEMU Guest Agent...
-msiexec /i E:\guest-agent\qemu-ga-x86_64.msi /qn /norestart /log C:\Windows\Panther\qemu-ga-install.log
-echo QEMU Guest Agent installation completed with exit code: %ERRORLEVEL%
-SETUPCMD
 
 # Generate Autounattend.xml
 echo_err "Generating autounattend.xml..."
@@ -215,46 +162,46 @@ cat > "$TEMP_DIR/iso_root/autounattend.xml" <<EOF
         <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <DriverPaths>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="1">
-                    <Path>E:\drivers\vioscsi</Path>
+                    <Path>F:\vioscsi\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="2">
-                    <Path>E:\drivers\netkvm</Path>
+                    <Path>F:\NetKVM\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="3">
-                    <Path>E:\drivers\balloon</Path>
+                    <Path>F:\Balloon\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="4">
-                    <Path>E:\drivers\vioserial</Path>
+                    <Path>F:\vioserial\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="5">
-                    <Path>E:\drivers\viostor</Path>
+                    <Path>F:\viostor\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="6">
-                    <Path>E:\drivers\viogpudo</Path>
+                    <Path>F:\viogpudo\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="7">
-                    <Path>E:\drivers\vioinput</Path>
+                    <Path>F:\vioinput\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="8">
-                    <Path>E:\drivers\viorng</Path>
+                    <Path>F:\viorng\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="9">
-                    <Path>E:\drivers\viofs</Path>
+                    <Path>F:\viofs\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="10">
-                    <Path>E:\drivers\pvpanic</Path>
+                    <Path>F:\pvpanic\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="11">
-                    <Path>E:\drivers\qemupciserial</Path>
+                    <Path>F:\qemupciserial\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="12">
-                    <Path>E:\drivers\fwcfg</Path>
+                    <Path>F:\fwcfg\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="13">
-                    <Path>E:\drivers\viomem</Path>
+                    <Path>F:\viomem\2k22\amd64</Path>
                 </PathAndCredentials>
                 <PathAndCredentials wcm:action="add" wcm:keyValue="14">
-                    <Path>E:\drivers\qxldod</Path>
+                    <Path>F:\qxldod\w10\amd64</Path>
                 </PathAndCredentials>
             </DriverPaths>
         </component>
@@ -328,18 +275,18 @@ cat > "$TEMP_DIR/iso_root/autounattend.xml" <<EOF
             <RunSynchronous>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>1</Order>
-                    <Path>pnputil.exe /add-driver E:\drivers\qxldod\qxl.inf /install</Path>
-                    <Description>Install QXL Video Driver</Description>
+                    <Path>cmd.exe /c IF NOT EXIST C:\Windows\Setup\Scripts MKDIR C:\Windows\Setup\Scripts</Path>
+                    <Description>Create Windows/Setup/Scripts folder</Description>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <Path>cmd.exe /c if not exist C:\Windows\Setup\Scripts mkdir C:\Windows\Setup\Scripts</Path>
-                    <Description>Create Scripts Directory</Description>
+                    <Path>cmd.exe /c ECHO powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 &gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
+                    <Description>Create SetupComplete.cmd script</Description>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>3</Order>
-                    <Path>cmd.exe /c copy E:\SetupComplete.cmd C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
-                    <Description>Copy SetupComplete Script</Description>
+                    <Path>cmd.exe /c ECHO msiexec /i F:\guest-agent\qemu-ga-x86_64.msi /qn /norestart /log C:\Windows\Panther\qemu-ga-install.log &gt;&gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
+                    <Description>Append to SetupComplete.cmd script</Description>
                 </RunSynchronousCommand>
             </RunSynchronous>
         </component>
@@ -376,11 +323,11 @@ genisoimage -J -r -V "Unattended" -input-charset utf-8 -o "$UNATTENDED_ISO" "$TE
 VM_BALLOON=0
 
 # Create VM
-#   Disk 0: EFI
-#   Disk 1: Main drive
-#   IDE 0: Windows ISO
-#   IDE 1: cloud-init
-#   IDE 2: Unattended ISO
+#   scsi0   Main drive        C
+#   ide0    Windows ISO       D
+#   ide1    VirtIO ISO        F
+#   ide2    Unattended ISO    E
+#   ide3    Cloud-Init        G
 echo_err "Creating VM $VM_ID..."
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
@@ -399,8 +346,9 @@ qm create $VM_ID --name $VM_NAME \
     --efidisk0 "$VM_STORAGE:1,efitype=4m,pre-enrolled-keys=1" \
     --scsi0 "$VM_STORAGE:$VM_DISKSIZE" \
     --ide0 "file=$VM_ISO,media=cdrom" \
-    --ide1 "$VM_STORAGE:cloudinit" \
+    --ide1 "file=$VM_VIRTIO_ISO,media=cdrom" \
     --ide2 "file=$UNATTENDED_ISO,media=cdrom" \
+    --ide3 "$VM_STORAGE:cloudinit" \
     --boot "order=scsi0;ide0" \
     --citype nocloud \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
@@ -426,5 +374,6 @@ sleep 10
 qm set $VM_ID --delete ide0 >/dev/null 2>&1 || true
 qm set $VM_ID --delete ide1 >/dev/null 2>&1 || true
 qm set $VM_ID --delete ide2 >/dev/null 2>&1 || true
+qm set $VM_ID --delete ide3 >/dev/null 2>&1 || true
 
 echo_err "VM $VM_ID is ready."
