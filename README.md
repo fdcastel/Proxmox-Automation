@@ -31,6 +31,7 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
   - [new-vm](#new-vm)
   - [new-vm-windows](#new-vm-windows)
   - [import-vm-windows](#import-vm-windows)
+  - [remove-windows-iso-prompt](#remove-windows-iso-prompt)
   - [remove-nag-subscription](#remove-nag-subscription)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
@@ -478,6 +479,33 @@ VM_ID=104
 # Query ipv4 addresses
 qm guest cmd $VM_ID network-get-interfaces | \
     jq -r '.[] | .["ip-addresses"][] | select(.["ip-address-type"]=="ipv4") | .["ip-address"]'
+```
+
+
+
+## remove-windows-iso-prompt
+
+```
+Usage: ./remove-windows-iso-prompt.sh <iso_file> [output_file] [OPTIONS]
+    <iso_file>           Path to Windows ISO file.
+    [output_file]        Path for modified ISO (default: <iso_file>.noprompt.iso).
+    --help, -h           Display this help message.
+```
+
+Rebuilds a Windows ISO to use the no-prompt EFI boot image.
+
+This script modifies a Windows installation ISO to automatically boot without requiring a "Press any key to boot from CD/DVD" prompt. It replaces the standard `efisys.bin` with the `efisys_noprompt.bin` version included in official Windows ISOs.
+
+The script requires `genisoimage` and `isoinfo` packages to be installed. If not available, install with: `apt-get install genisoimage`.
+
+### Example
+
+```bash
+# Create a no-prompt version of Windows Server 2025 ISO
+./remove-windows-iso-prompt.sh /var/lib/vz/template/iso/windows-server-2025.iso
+
+# Specify custom output path
+./remove-windows-iso-prompt.sh /var/lib/vz/template/iso/windows-11.iso /tmp/windows-11-noprompt.iso
 ```
 
 
