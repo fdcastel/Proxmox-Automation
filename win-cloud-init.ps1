@@ -214,10 +214,10 @@ function Test-GatewayOnLink {
 }
 
 # Get all network adapters
-$allAdapters = Get-NetAdapter | Sort-Object -Property Name   # First adapter is 'Ethernet', second is 'Ethernet 2', etc.
+$allAdapters = @(Get-NetAdapter | Sort-Object -Property Name)    # First adapter is 'Ethernet', second is 'Ethernet 2', etc.
 
 # Configure each interface
-$interfaceIndex = 0
+$i = 0
 foreach ($iface in $interfaces) {
     Write-Host "`n--- Processing Interface: $($iface.Name) ---"
     
@@ -226,14 +226,14 @@ foreach ($iface in $interfaces) {
         continue
     }
     
-    # Match by interface index (eth0 = first adapter, eth1 = second adapter, etc)
-    if ($interfaceIndex -ge $allAdapters.Count) {
-        Write-Warning "No adapter found for interface index $interfaceIndex"
+    # Match by interface order (eth0 = first adapter, eth1 = second adapter, etc)
+    if ($i -ge $allAdapters.Count) {
+        Write-Warning "No adapter found for interface #$i"
         continue
     }
     
-    $adapter = $allAdapters[$interfaceIndex]
-    $interfaceIndex++
+    $adapter = $allAdapters[$i]
+    $i++
     
     Write-Host "Matched Adapter: $($adapter.Name) (Index: $($adapter.InterfaceIndex), MAC: $($adapter.MacAddress))"
     
