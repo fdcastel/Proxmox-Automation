@@ -196,6 +196,12 @@ function Test-GatewayOnLink {
         [string]$Gateway
     )
     
+    # Validate prefix is in valid range
+    if ($Prefix -lt 0 -or $Prefix -gt 32) {
+        Write-Warning "Invalid prefix length: $Prefix. Assuming off-link gateway."
+        return $false
+    }
+    
     if ($Prefix -eq 32) { return $false }
     
     $ipBytes = [System.Net.IPAddress]::Parse($IpAddress).GetAddressBytes()
@@ -208,7 +214,7 @@ function Test-GatewayOnLink {
     
     $ipInt = [System.BitConverter]::ToUInt32($ipBytes, 0)
     $gwInt = [System.BitConverter]::ToUInt32($gwBytes, 0)
-    $maskInt = [uint32](0xFFFFFFFF -shl (32 - $Prefix))
+    $maskInt = [uint32]::MaxValue -shl (32 - $Prefix)
     
     return (($ipInt -band $maskInt) -eq ($gwInt -band $maskInt))
 }
@@ -258,10 +264,18 @@ foreach ($iface in $interfaces) {
         $maskBytes = [System.Net.IPAddress]::Parse($netmask).GetAddressBytes()
         if ([System.BitConverter]::IsLittleEndian) { [Array]::Reverse($maskBytes) }
         $maskInt = [System.BitConverter]::ToUInt32($maskBytes, 0)
+        
+        # Count leading 1 bits from the left (most significant bit)
         $prefix = 0
-        for ($b = 0; $b -lt 32; $b++) {
-            if (($maskInt -shr $b) -band 1) { $prefix++ }
+        for ($b = 31; $b -ge 0; $b--) {
+            if (($maskInt -shr $b) -band 1) {
+                $prefix++
+            } else {
+                break  # Stop at first 0 bit
+            }
         }
+        
+        Write-Host "Converted netmask $netmask to /$prefix"
     }
     
     Write-Host "IP Configuration: $ip/$prefix"
