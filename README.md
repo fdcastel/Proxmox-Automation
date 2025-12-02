@@ -359,11 +359,10 @@ Additional options:
 Creates a Windows VM from a Windows installation ISO with automated unattended installation.
 
 The script automatically:
-- Extracts and configures VirtIO drivers for optimal performance
-- Generates an `autounattend.xml` file for automated Windows setup
+- Installs VirtIO drivers for optimal performance
 - Installs QEMU Guest Agent during setup
-- Configures the Administrator password
-- Cleans up installation media after setup completes
+- Configures the Administrator password and other options passed by Proxmox cloud-init configuration.
+  - This script uses the [`win-cloud-init.ps1`](win-cloud-init.ps1) script during the VM’s first run. You can learn more about it [here](win-cloud-init.md).
 
 Requires the VirtIO drivers ISO. Download it with `./download-virtio-image.sh`.
 
