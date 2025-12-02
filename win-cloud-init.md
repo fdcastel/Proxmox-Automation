@@ -6,7 +6,7 @@
 
 It provides basic support for the configuration parameters that Proxmox's cloud-init feature generates, focusing specifically on network configuration and SSH key management.
 
-**Important:** This is not a full cloud-init implementation. It is designed to work specifically with Proxmox VE's cloud-init drive (ConfigDrive v2 format) and only supports a minimal subset of cloud-init features.
+**Important:** This is not a full cloud-init implementation. It is designed to work specifically with Proxmox VE's cloud-init drive (NoCloud format) and only supports a minimal subset of cloud-init features.
 
 ## Purpose
 
@@ -30,60 +30,98 @@ The script is executed during Windows installation via `SetupComplete.cmd`, whic
 
 ### 2. Cloud-Init Drive Detection
 
-The script looks for a volume labeled `config-2` (Proxmox's ConfigDrive v2 format):
+The script looks for a volume labeled `cidata` (Proxmox's NoCloud format):
 
 ```powershell
-$cidata = Get-Volume -FileSystemLabel "config-2"
+$cidata = Get-Volume -FileSystemLabel "cidata"
 ```
 
 It waits up to 30 seconds for the drive to appear, accounting for potential delays in drive mounting during the boot process.
 
 ### 3. Configuration Files
 
-The script reads three files from the cloud-init drive:
+The script reads three files from the root of the cloud-init drive:
 
-#### a) `openstack/latest/user_data`
-- Contains FQDN information
-- Used to extract DNS search domain
-- Format: `fqdn: hostname.domain.com`
-- The domain suffix (everything after the first dot) becomes the DNS search domain
+#### a) `user-data`
+- YAML format containing user configuration
+- Used to extract:
+  - FQDN information (format: `fqdn: hostname.domain.com`)
+  - SSH authorized keys (under `ssh_authorized_keys:` section)
+- The domain suffix (everything after the first dot in FQDN) becomes the DNS search domain
 
-#### b) `openstack/latest/meta_data.json`
-- JSON format containing metadata
+Example:
+```yaml
+#cloud-config
+hostname: tst241
+manage_etc_hosts: true
+fqdn: tst241.poa.dalcastel.com
+password: asdf
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABQ...
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAA...
+chpasswd:
+  expire: false
+users:
+  - default
+package_upgrade: true
+```
+
+#### b) `meta-data`
+- YAML format containing instance metadata
 - Key fields used:
-  - `uuid`: Instance identifier
+  - `instance_id`: Instance identifier
   - `hostname`: VM hostname
-  - `public_keys`: SSH public keys object (key-value pairs)
 
 Example:
-```json
-{
-  "uuid": "...",
-  "hostname": "myhost",
-  "public_keys": {
-    "key1": "ssh-rsa AAAAB3NzaC1yc2EA...",
-    "key2": "ssh-ed25519 AAAAC3NzaC1lZDI1..."
-  }
-}
+```yaml
+instance-id: tst241
+hostname: tst241
 ```
 
-#### c) `openstack/content/0000`
-- Network configuration in Debian-style network interfaces format
-- Contains interface definitions with static IP configuration
+#### c) `network-config`
+- YAML format (cloud-init network config version 1)
+- Contains interface definitions with MAC addresses for reliable matching
+- Includes static IP configuration, DHCP configuration, nameservers, and search domains
 
 Example:
-```
-auto eth0
-iface eth0 inet static
-address 192.168.1.10
-netmask 255.255.255.0
-gateway 192.168.1.1
-dns-nameservers 8.8.8.8 8.8.4.4
+```yaml
+version: 1
+config:
+  - type: physical
+    name: eth0
+    mac_address: 'bc:24:11:8f:14:44'
+    subnets:
+      - type: dhcp6
+  - type: physical
+    name: eth1
+    mac_address: 'bc:24:11:14:af:9a'
+    subnets:
+      - type: static
+        address: '192.168.10.241'
+        netmask: '255.255.255.0'
+        gateway: '192.168.10.1'
+  - type: physical
+    name: eth2
+    mac_address: 'bc:24:11:c9:b8:fc'
+    subnets:
+      - type: ipv6_slaac
+  - type: physical
+    name: eth3
+    mac_address: 'bc:24:11:16:64:2b'
+    subnets:
+      - type: static
+        address: '1.1.1.1'
+        netmask: '255.240.0.0'
+  - type: nameserver
+    address:
+      - '192.168.10.1'
+    search:
+      - 'poa.dalcastel.com'
 ```
 
 ### 4. SSH Key Installation
 
-When SSH public keys are found in `meta_data.json`:
+When SSH public keys are found in `user-data` under `ssh_authorized_keys:`:
 
 1. Creates `C:\ProgramData\ssh\` directory if needed
 2. Writes all public keys to `C:\ProgramData\ssh\administrators_authorized_keys`
@@ -98,14 +136,24 @@ When SSH public keys are found in `meta_data.json`:
 
 #### Interface Matching
 
-The script uses a **simple index-based matching** approach:
-- `eth0` → First network adapter (sorted by name: "Ethernet")
-- `eth1` → Second network adapter (sorted by name: "Ethernet 2")
-- `eth2` → Third network adapter, etc.
+The script uses **MAC address-based matching** for reliable interface identification:
+- Each interface in `network-config` includes a `mac_address` field
+- Windows network adapters are matched by comparing MAC addresses
+- This approach is reliable even with dozens of interfaces and doesn't depend on adapter enumeration order
 
 ```powershell
-$allAdapters = Get-NetAdapter | Sort-Object -Property Name
+$adapter = $allAdapters | Where-Object { $_.MacAddress -eq $iface.MacAddress }
 ```
+
+Example matching process:
+1. Parse `network-config` and extract interface with `mac_address: 'bc:24:11:14:af:9a'`
+2. Find Windows adapter with matching MAC address `BC-24-11-14-AF-9A`
+3. Apply configuration to that specific adapter
+
+This ensures configuration is always applied to the correct physical interface, regardless of:
+- Adapter naming in Windows (Ethernet, Ethernet 2, etc.)
+- Order in which adapters are detected by Windows
+- Number of network interfaces in the VM
 
 #### Static IP Configuration
 
@@ -161,17 +209,7 @@ All output is logged to `C:\Windows\Panther\win-cloud-init.log` using PowerShell
 
 ## Limitations and Known Issues
 
-### 1. **Interface Matching by Index Only**
-
-**Issue:** The script matches network interfaces by index (eth0 = 1st adapter, eth1 = 2nd adapter) rather than by MAC address or other unique identifiers.
-
-**Impact:** If network adapters are enumerated in a different order than expected, configuration will be applied to the wrong interfaces.
-
-**Workaround:** Ensure network adapters are added to the VM in a predictable order and don't remove/re-add adapters after initial configuration.
-
-**Future Fix:** Parse MAC addresses from cloud-init configuration (if available) and match adapters by MAC address instead of index.
-
-### 2. **No IPv6 Support**
+### 1. **No IPv6 Support**
 
 **Issue:** The script only handles IPv4 addresses. All operations use `-AddressFamily IPv4`.
 
@@ -179,9 +217,9 @@ All output is logged to `C:\Windows\Panther\win-cloud-init.log` using PowerShell
 
 **Workaround:** Configure IPv6 manually after VM creation or use a different provisioning method.
 
-**Future Fix:** Parse and configure IPv6 addresses from cloud-init data.
+**Future Fix:** Parse and configure IPv6 addresses from cloud-init data. The `network-config` format already supports `ipv6_slaac` and `dhcp6` types, so this would require extending the PowerShell parser to handle IPv6 addresses.
 
-### 3. **Single Execution Assumption**
+### 2. **Single Execution Assumption**
 
 **Issue:** The script is designed to run once during initial setup via `SetupComplete.cmd`.
 
@@ -199,7 +237,7 @@ Remove-NetRoute -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -Con
 
 **Future Fix:** Add idempotency checks to safely handle multiple executions.
 
-### 4. **Netmask to Prefix Conversion Accuracy**
+### 3. **Netmask to Prefix Conversion Accuracy**
 
 **Issue:** The netmask-to-prefix conversion counts all '1' bits but doesn't validate that they are contiguous:
 
@@ -215,7 +253,7 @@ for ($b = 0; $b -lt 32; $b++) {
 
 **Future Fix:** Validate that netmask bits are contiguous before calculating prefix length.
 
-### 5. **Off-link Gateway Host Route**
+### 4. **Off-link Gateway Host Route**
 
 **Issue:** The off-link gateway configuration adds a host route using `0.0.0.0` as next hop:
 
@@ -229,7 +267,7 @@ New-NetRoute -DestinationPrefix "$gateway/32" -NextHop "0.0.0.0"
 
 **Future Fix:** Research and implement the most RFC-compliant method for configuring off-link gateways on Windows.
 
-### 6. **No Multi-Gateway Support**
+### 5. **No Multi-Gateway Support**
 
 **Issue:** Only one default gateway is configured per interface.
 
@@ -238,6 +276,19 @@ New-NetRoute -DestinationPrefix "$gateway/32" -NextHop "0.0.0.0"
 **Workaround:** Configure additional routes manually after VM creation.
 
 **Future Fix:** Parse and configure multiple routes if provided in cloud-init data.
+
+### 6. **Simple YAML Parser**
+
+**Issue:** The script includes a basic YAML parser (`ConvertFrom-SimpleYaml`) that handles the simple key-value format used by Proxmox's `user-data` and `meta-data` files. However, it's not a full YAML parser.
+
+**Impact:** 
+- Works well for Proxmox's simple YAML format
+- The `network-config` file uses a more complex nested structure and is parsed with custom logic specific to the cloud-init network config v1 format
+- May not handle all possible YAML constructs
+
+**Workaround:** The current implementation is specifically designed for Proxmox's cloud-init format and handles the structures that Proxmox generates.
+
+**Future Fix:** Consider using a full-featured YAML parser module if more complex YAML processing is needed.
 
 ## Usage
 
@@ -291,20 +342,38 @@ Get-Content C:\ProgramData\ssh\administrators_authorized_keys
 
 Potential improvements for future versions:
 
-1. **MAC address-based interface matching** - More reliable than index-based matching (*)
-2. **Full cloud-init v2 compatibility** - Support more cloud-init features
-3. **IPv6 support** - Handle dual-stack configurations
-4. **Idempotency** - Safe to run multiple times
-5. **User data script execution** - Run custom scripts from user_data
-6. **Password configuration** - Set administrator password from cloud-init
-7. **Multiple network routes** - Support complex routing scenarios
-8. **Validation and rollback** - Verify configuration and rollback on failure
+1. **IPv6 support** - Handle dual-stack configurations (network-config already includes ipv6_slaac and dhcp6 types)
+2. **Full cloud-init compatibility** - Support more cloud-init features and modules
+3. **Idempotency** - Safe to run multiple times with proper state checking
+4. **User data script execution** - Run custom scripts from user_data (runcmd, bootcmd modules)
+5. **Password configuration** - Set administrator password from cloud-init
+6. **Multiple network routes** - Support complex routing scenarios
+7. **Validation and rollback** - Verify configuration and rollback on failure
+8. **Full YAML parser** - Replace simple parser with a robust YAML library
 
-(*) **BLOCKER:** Proxmox doesn't include MAC addresses in `openstack/content/0000` (`configdrive2`).
+## Version History
+
+### Version 2.0 (Current)
+- **Breaking Change:** Switched from ConfigDrive v2 to NoCloud format
+- Changed drive label from `config-2` to `cidata`
+- Updated file paths to root-level (`user-data`, `meta-data`, `network-config`)
+- Implemented MAC address-based interface matching (resolves reliability issues)
+- Added YAML parsing for network-config with full MAC address support
+- Moved SSH keys parsing from meta-data to user-data (per NoCloud standard)
+- Added support for global nameservers and search domains from network-config
+- Enhanced logging and debugging output
+- Can now reliably handle dozens of network interfaces
+
+### Version 1.0 (Legacy)
+- ConfigDrive v2 format support
+- Index-based interface matching
+- Debian interfaces file format parsing
+- JSON meta-data parsing
 
 ## References
 
 - [Proxmox Cloud-Init Support](https://pve.proxmox.com/wiki/Cloud-Init_Support)
-- [Cloud-Init ConfigDrive v2](https://cloudinit.readthedocs.io/en/latest/reference/datasources/configdrive.html)
+- [Cloud-Init NoCloud Datasource](https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html)
+- [Cloud-Init Network Config v1](https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v1.html)
 - [OpenSSH for Windows](https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_overview)
 - [Windows Unattended Installation](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/automate-windows-setup)

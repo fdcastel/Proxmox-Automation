@@ -402,7 +402,7 @@ qm create $VM_ID --name $VM_NAME \
     --ide1 "$VM_STORAGE:cloudinit" \
     --ide2 "file=$UNATTENDED_ISO,media=cdrom" \
     --boot "order=scsi0;ide0" \
-    --citype configdrive2 \
+    --citype nocloud \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
 
 # Start VM
