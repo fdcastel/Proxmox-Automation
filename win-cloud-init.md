@@ -11,10 +11,13 @@ It provides basic support for the configuration parameters that Proxmox's cloud-
 ## Purpose
 
 This script enables Windows VMs created with `new-vm-windows.sh` to:
-- Automatically configure static IP addresses from Proxmox cloud-init settings
-- Set up DNS servers and search domains
+- Automatically configure static IPv4 and IPv6 addresses from Proxmox cloud-init settings
+- Enable DHCP, DHCPv6, and IPv6 SLAAC for dynamic addressing
+- Support multiple IP addresses (IPv4 and IPv6) on the same interface
+- Set up DNS servers (IPv4 and IPv6) and search domains
 - Install SSH public keys for administrator access
 - Handle both on-link and off-link gateway configurations
+- Run safely multiple times (idempotent)
 
 ## How It Works
 
@@ -83,7 +86,7 @@ hostname: tst241
 - Contains interface definitions with MAC addresses for reliable matching
 - Includes static IP configuration, DHCP configuration, nameservers, and search domains
 
-Example:
+Example (IPv4 and IPv6):
 ```yaml
 version: 1
 config:
@@ -91,7 +94,8 @@ config:
     name: eth0
     mac_address: 'bc:24:11:8f:14:44'
     subnets:
-      - type: dhcp6
+      - type: dhcp        # IPv4 DHCP
+      - type: dhcp6       # IPv6 DHCPv6
   - type: physical
     name: eth1
     mac_address: 'bc:24:11:14:af:9a'
@@ -100,11 +104,14 @@ config:
         address: '192.168.10.241'
         netmask: '255.255.255.0'
         gateway: '192.168.10.1'
+      - type: static      # IPv6 static address
+        address: '2001:db8::1'
+        netmask: '64'
   - type: physical
     name: eth2
     mac_address: 'bc:24:11:c9:b8:fc'
     subnets:
-      - type: ipv6_slaac
+      - type: ipv6_slaac  # IPv6 auto-configuration
   - type: physical
     name: eth3
     mac_address: 'bc:24:11:16:64:2b'
@@ -115,6 +122,7 @@ config:
   - type: nameserver
     address:
       - '192.168.10.1'
+      - '2001:4860:4860::8888'  # IPv6 DNS (Google Public DNS)
     search:
       - 'poa.dalcastel.com'
 ```
@@ -157,12 +165,20 @@ This ensures configuration is always applied to the correct physical interface, 
 
 #### Static IP Configuration
 
-For each static interface, the script:
+The script supports multiple subnet configurations per interface, including:
 
-1. Disables DHCP
-2. Removes existing IP addresses and routes
-3. Converts netmask to CIDR prefix length
-4. Configures the IP address
+- **static**: Static IPv4 or IPv6 addresses with optional gateway
+- **dhcp**: Dynamic IPv4 address assignment via DHCP
+- **dhcp6**: Dynamic IPv6 address assignment via DHCPv6
+- **ipv6_slaac**: IPv6 Stateless Address Autoconfiguration (SLAAC)
+
+For each subnet configuration, the script:
+
+1. Detects if the address is IPv4 or IPv6 automatically
+2. Checks if the IP is already configured (idempotency)
+3. Converts netmask to CIDR prefix length (for IPv4)
+4. Configures the IP address only if not already present
+5. Checks for existing routes before adding new ones
 
 #### Gateway Configuration
 
@@ -203,41 +219,25 @@ This means:
 - SSH key installation errors will stop the script
 - DNS configuration failures will prevent completion
 
-### 7. Logging
+### 7. Idempotency
+
+The script is designed to be **idempotent** and can be safely run multiple times. It checks the current configuration before making changes:
+
+- **IP Addresses**: Checks if the IP address is already configured before attempting to add it
+- **Routes**: Verifies if routes exist before creating new ones (host routes and default routes)
+- **DNS**: Compares current DNS server configuration with desired state
+- **DNS Search Domain**: Only updates if different from current value
+- **DHCP**: Checks if DHCP is already enabled before enabling it
+
+This makes the script safe to use for both initial configuration and subsequent updates without causing errors or duplicate configurations.
+
+### 8. Logging
 
 All output is logged to `C:\Windows\Panther\win-cloud-init.log` using PowerShell's `Start-Transcript` and `Stop-Transcript` cmdlets.
 
 ## Limitations and Known Issues
 
-### 1. **No IPv6 Support**
-
-**Issue:** The script only handles IPv4 addresses. All operations use `-AddressFamily IPv4`.
-
-**Impact:** Cannot configure IPv6 addresses via cloud-init.
-
-**Workaround:** Configure IPv6 manually after VM creation or use a different provisioning method.
-
-**Future Fix:** Parse and configure IPv6 addresses from cloud-init data. The `network-config` format already supports `ipv6_slaac` and `dhcp6` types, so this would require extending the PowerShell parser to handle IPv6 addresses.
-
-### 2. **Single Execution Assumption**
-
-**Issue:** The script is designed to run once during initial setup via `SetupComplete.cmd`.
-
-**Impact:** 
-- Cannot be used to reconfigure networking on a running system
-- Doesn't handle already-configured interfaces gracefully
-- Running it again may cause duplicate routes or conflicting configurations
-
-**Workaround:** The script does attempt to clear existing configuration before applying new settings:
-```powershell
-Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled
-Remove-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -Confirm:$false
-Remove-NetRoute -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -Confirm:$false
-```
-
-**Future Fix:** Add idempotency checks to safely handle multiple executions.
-
-### 3. **Netmask to Prefix Conversion Accuracy**
+### 1. **Netmask to Prefix Conversion Accuracy**
 
 **Issue:** The netmask-to-prefix conversion counts all '1' bits but doesn't validate that they are contiguous:
 
@@ -253,7 +253,7 @@ for ($b = 0; $b -lt 32; $b++) {
 
 **Future Fix:** Validate that netmask bits are contiguous before calculating prefix length.
 
-### 4. **Off-link Gateway Host Route**
+### 2. **Off-link Gateway Host Route**
 
 **Issue:** The off-link gateway configuration adds a host route using `0.0.0.0` as next hop:
 
@@ -267,7 +267,7 @@ New-NetRoute -DestinationPrefix "$gateway/32" -NextHop "0.0.0.0"
 
 **Future Fix:** Research and implement the most RFC-compliant method for configuring off-link gateways on Windows.
 
-### 5. **No Multi-Gateway Support**
+### 3. **No Multi-Gateway Support**
 
 **Issue:** Only one default gateway is configured per interface.
 
@@ -277,7 +277,7 @@ New-NetRoute -DestinationPrefix "$gateway/32" -NextHop "0.0.0.0"
 
 **Future Fix:** Parse and configure multiple routes if provided in cloud-init data.
 
-### 6. **Simple YAML Parser**
+### 4. **Simple YAML Parser**
 
 **Issue:** The script includes a basic YAML parser (`ConvertFrom-SimpleYaml`) that handles the simple key-value format used by Proxmox's `user-data` and `meta-data` files. However, it's not a full YAML parser.
 
@@ -342,18 +342,33 @@ Get-Content C:\ProgramData\ssh\administrators_authorized_keys
 
 Potential improvements for future versions:
 
-1. **IPv6 support** - Handle dual-stack configurations (network-config already includes ipv6_slaac and dhcp6 types)
-2. **Full cloud-init compatibility** - Support more cloud-init features and modules
-3. **Idempotency** - Safe to run multiple times with proper state checking
-4. **User data script execution** - Run custom scripts from user_data (runcmd, bootcmd modules)
-5. **Password configuration** - Set administrator password from cloud-init
-6. **Multiple network routes** - Support complex routing scenarios
-7. **Validation and rollback** - Verify configuration and rollback on failure
-8. **Full YAML parser** - Replace simple parser with a robust YAML library
+1. **Full cloud-init compatibility** - Support more cloud-init features and modules
+2. **User data script execution** - Run custom scripts from user_data (runcmd, bootcmd modules)
+3. **Multiple network routes** - Support complex routing scenarios
+4. **Validation and rollback** - Verify configuration and rollback on failure
+5. **Full YAML parser** - Replace simple parser with a robust YAML library
+6. **IPv6 gateway configuration** - Add support for explicit IPv6 gateway configuration (currently relies on router advertisements)
 
 ## Version History
 
-### Version 2.0 (Current)
+### Version 2.1 (Current)
+- **New Feature:** Full IPv6 support
+  - Configure static IPv6 addresses
+  - Enable DHCPv6 for dynamic IPv6 addressing
+  - Support IPv6 SLAAC (Stateless Address Autoconfiguration)
+  - Automatic detection of IPv4 vs IPv6 addresses
+- **New Feature:** Idempotency
+  - Safe to run multiple times without errors
+  - Checks existing IP addresses before adding
+  - Verifies routes exist before creating
+  - Compares DNS configuration before updating
+  - Smart DHCP enable/disable logic
+- **Enhancement:** Multi-subnet support per interface
+  - Each interface can have multiple IPv4 and IPv6 addresses
+  - Mix of static, DHCP, and SLAAC on same interface
+- **Enhancement:** Improved error handling and logging
+
+### Version 2.0
 - **Breaking Change:** Switched from ConfigDrive v2 to NoCloud format
 - Changed drive label from `config-2` to `cidata`
 - Updated file paths to root-level (`user-data`, `meta-data`, `network-config`)

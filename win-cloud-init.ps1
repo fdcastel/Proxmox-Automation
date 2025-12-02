@@ -252,6 +252,11 @@ foreach ($line in $networkConfigContent -split "`r?`n") {
     }
     
     if ($trimmedLine -match '^-\s+type:\s*physical') {
+        # Save last subnet for previous interface
+        if ($currentInterface -and $currentSubnet -and ($currentSubnet.Address -or $currentSubnet.Type -in @('dhcp', 'dhcp6', 'ipv6_slaac'))) {
+            $currentInterface.Subnets += $currentSubnet
+        }
+        
         # Save previous interface
         if ($currentInterface -and $currentInterface.MacAddress) {
             $interfaces += $currentInterface
@@ -261,10 +266,7 @@ foreach ($line in $networkConfigContent -split "`r?`n") {
         $currentInterface = @{
             Name = $null
             MacAddress = $null
-            Type = $null
-            Address = $null
-            Netmask = $null
-            Gateway = $null
+            Subnets = @()  # Support multiple subnets (IPv4 and IPv6)
             DnsServers = @()
         }
         $inSubnetsSection = $false
@@ -273,6 +275,11 @@ foreach ($line in $networkConfigContent -split "`r?`n") {
     }
     
     if ($trimmedLine -match '^-\s+type:\s*nameserver') {
+        # Save last subnet for previous interface
+        if ($currentInterface -and $currentSubnet -and ($currentSubnet.Address -or $currentSubnet.Type -in @('dhcp', 'dhcp6', 'ipv6_slaac'))) {
+            $currentInterface.Subnets += $currentSubnet
+        }
+        
         # Save previous interface
         if ($currentInterface -and $currentInterface.MacAddress) {
             $interfaces += $currentInterface
@@ -297,19 +304,32 @@ foreach ($line in $networkConfigContent -split "`r?`n") {
             $inSubnetsSection = $true
         }
         elseif ($inSubnetsSection -and $trimmedLine -match '^-\s+type:\s*(\S+)') {
+            # Save previous subnet if exists
+            if ($currentSubnet -and ($currentSubnet.Address -or $currentSubnet.Type -in @('dhcp', 'dhcp6', 'ipv6_slaac'))) {
+                $currentInterface.Subnets += $currentSubnet
+            }
+            # Start new subnet
             $currentSubnet = @{
                 Type = $matches[1]
+                Address = $null
+                Netmask = $null
+                Gateway = $null
             }
-            $currentInterface.Type = $matches[1]
         }
         elseif ($inSubnetsSection -and $trimmedLine -match '^address:\s*(.+)$') {
-            $currentInterface.Address = $matches[1].Trim().Trim("'").Trim('"')
+            if ($currentSubnet) {
+                $currentSubnet.Address = $matches[1].Trim().Trim("'").Trim('"')
+            }
         }
         elseif ($inSubnetsSection -and $trimmedLine -match '^netmask:\s*(.+)$') {
-            $currentInterface.Netmask = $matches[1].Trim().Trim("'").Trim('"')
+            if ($currentSubnet) {
+                $currentSubnet.Netmask = $matches[1].Trim().Trim("'").Trim('"')
+            }
         }
         elseif ($inSubnetsSection -and $trimmedLine -match '^gateway:\s*(.+)$') {
-            $currentInterface.Gateway = $matches[1].Trim().Trim("'").Trim('"')
+            if ($currentSubnet) {
+                $currentSubnet.Gateway = $matches[1].Trim().Trim("'").Trim('"')
+            }
         }
     }
     
@@ -330,6 +350,11 @@ foreach ($line in $networkConfigContent -split "`r?`n") {
             $searchDomains += $matches[1].Trim().Trim("'").Trim('"')
         }
     }
+}
+
+# Save last subnet for last interface (only if interface exists)
+if ($currentInterface -and $currentSubnet -and ($currentSubnet.Address -or $currentSubnet.Type -in @('dhcp', 'dhcp6', 'ipv6_slaac'))) {
+    $currentInterface.Subnets += $currentSubnet
 }
 
 # Save last interface
@@ -399,9 +424,10 @@ foreach ($adapter in $allAdapters) {
 foreach ($iface in $interfaces) {
     Write-Host "`n--- Processing Interface: $($iface.Name) ---"
     Write-Host "Looking for MAC address: $($iface.MacAddress)"
+    Write-Host "Found $($iface.Subnets.Count) subnet(s) configured"
     
-    if ($iface.Type -ne "static") {
-        Write-Host "Skipping non-static interface (type: $($iface.Type))"
+    if ($iface.Subnets.Count -eq 0) {
+        Write-Host "Skipping interface with no subnets configured"
         continue
     }
     
@@ -419,108 +445,214 @@ foreach ($iface in $interfaces) {
     
     Write-Host "Matched Adapter: $($adapter.Name) (Index: $($adapter.InterfaceIndex), MAC: $($adapter.MacAddress))"
     
-    # Clear existing configuration
-    Write-Host "Clearing existing configuration..."
-    Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled -ErrorAction SilentlyContinue
-    Remove-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-    Remove-NetRoute -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-    
-    # Get IP configuration
-    $ip = $iface.Address
-    if (-not $ip) {
-        Write-Warning "No IP address defined for interface '$($iface.Name)'"
-        continue
-    }
-    
-    $netmask = $iface.Netmask
-    $prefix = 24  # default
-    
-    if ($netmask) {
-        # Convert netmask to prefix length
-        $maskBytes = [System.Net.IPAddress]::Parse($netmask).GetAddressBytes()
-        if ([System.BitConverter]::IsLittleEndian) { [Array]::Reverse($maskBytes) }
-        $maskInt = [System.BitConverter]::ToUInt32($maskBytes, 0)
+    # Process each subnet configuration
+    foreach ($subnet in $iface.Subnets) {
+        $subnetType = $subnet.Type
+        Write-Host "`n  Configuring subnet type: $subnetType"
         
-        # Count leading 1 bits from the left (most significant bit)
-        $prefix = 0
-        for ($b = 31; $b -ge 0; $b--) {
-            if (($maskInt -shr $b) -band 1) {
-                $prefix++
-            } else {
-                break  # Stop at first 0 bit
+        # Handle different subnet types
+        switch ($subnetType) {
+            { $_ -in @('static', 'static6') } {
+                $ip = $subnet.Address
+                if (-not $ip) {
+                    Write-Warning "  No IP address defined for static subnet"
+                    continue
+                }
+                
+                # Check if address has CIDR prefix embedded (e.g., "2001:db8::1/64")
+                $prefix = $null
+                if ($ip -match '^(.+)/(\d+)$') {
+                    $ip = $matches[1]
+                    $prefix = [int]$matches[2]
+                }
+                
+                # Detect if IPv4 or IPv6
+                $isIPv6 = $ip -match ':'
+                $addressFamily = if ($isIPv6) { 'IPv6' } else { 'IPv4' }
+                
+                # Get prefix length from netmask if not already set
+                if ($subnet.Netmask -and -not $prefix) {
+                    if (-not $isIPv6) {
+                        # Convert netmask to prefix length for IPv4
+                        $maskBytes = [System.Net.IPAddress]::Parse($subnet.Netmask).GetAddressBytes()
+                        if ([System.BitConverter]::IsLittleEndian) { [Array]::Reverse($maskBytes) }
+                        $maskInt = [System.BitConverter]::ToUInt32($maskBytes, 0)
+                        
+                        # Count leading 1 bits from the left
+                        $prefix = 0
+                        for ($b = 31; $b -ge 0; $b--) {
+                            if (($maskInt -shr $b) -band 1) {
+                                $prefix++
+                            } else {
+                                break
+                            }
+                        }
+                        Write-Host "  Converted netmask $($subnet.Netmask) to /$prefix"
+                    } else {
+                        # For IPv6, netmask field might contain prefix length
+                        $prefix = [int]$subnet.Netmask
+                    }
+                }
+                
+                # Set defaults if still not set
+                if (-not $prefix) {
+                    $prefix = 24  # default for IPv4
+                    if ($isIPv6) { $prefix = 64 }  # default for IPv6
+                }
+                
+                Write-Host "  IP Configuration: $ip/$prefix ($addressFamily)"
+                
+                # Check if this IP is already configured (idempotency)
+                $existingIP = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily $addressFamily -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPAddress -eq $ip }
+                
+                if ($existingIP) {
+                    Write-Host "  IP address $ip already configured, skipping"
+                } else {
+                    # Get gateway
+                    $gateway = $subnet.Gateway
+                    if ($gateway) {
+                        Write-Host "  Default Gateway: $gateway"
+                    }
+                    
+                    # Configure IP address
+                    if ($gateway -and -not $isIPv6) {
+                        # Only handle gateway logic for IPv4 (IPv6 uses router advertisements)
+                        $isOnLink = Test-GatewayOnLink -IpAddress $ip -Prefix $prefix -Gateway $gateway
+                        
+                        if ($isOnLink) {
+                            Write-Host "  Configuring with on-link gateway..."
+                            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
+                                -IPAddress $ip `
+                                -PrefixLength $prefix `
+                                -DefaultGateway $gateway `
+                                -AddressFamily $addressFamily | Out-Null
+                        } else {
+                            Write-Host "  Configuring with off-link gateway..."
+                            
+                            # Add IP address without gateway
+                            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
+                                -IPAddress $ip `
+                                -PrefixLength $prefix `
+                                -AddressFamily $addressFamily | Out-Null
+                            
+                            # Check if host route already exists
+                            $existingHostRoute = Get-NetRoute -DestinationPrefix "$gateway/32" -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue
+                            if (-not $existingHostRoute) {
+                                Write-Host "  Adding host route to gateway $gateway..."
+                                New-NetRoute -DestinationPrefix "$gateway/32" `
+                                    -InterfaceIndex $adapter.InterfaceIndex `
+                                    -NextHop "0.0.0.0" | Out-Null
+                            }
+                            
+                            # Check if default route already exists
+                            $existingDefaultRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue
+                            if (-not $existingDefaultRoute) {
+                                Write-Host "  Adding default route via $gateway..."
+                                New-NetRoute -DestinationPrefix "0.0.0.0/0" `
+                                    -InterfaceIndex $adapter.InterfaceIndex `
+                                    -NextHop $gateway | Out-Null
+                            }
+                        }
+                    } else {
+                        Write-Host "  Configuring without gateway..."
+                        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
+                            -IPAddress $ip `
+                            -PrefixLength $prefix `
+                            -AddressFamily $addressFamily | Out-Null
+                    }
+                    
+                    Write-Host "  IP configuration applied successfully"
+                }
+            }
+            
+            'dhcp' {
+                Write-Host "  Enabling DHCP for IPv4..."
+                # Check if already on DHCP
+                $dhcpStatus = Get-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
+                if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
+                    Write-Host "  DHCP already enabled"
+                } else {
+                    Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Enabled -AddressFamily IPv4
+                    Write-Host "  DHCP enabled"
+                }
+            }
+            
+            'dhcp6' {
+                Write-Host "  Enabling DHCP for IPv6..."
+                $dhcpStatus = Get-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
+                if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
+                    Write-Host "  DHCPv6 already enabled"
+                } else {
+                    Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Enabled -AddressFamily IPv6
+                    Write-Host "  DHCPv6 enabled"
+                }
+            }
+            
+            'ipv6_slaac' {
+                Write-Host "  Enabling IPv6 SLAAC (Stateless Address Autoconfiguration)..."
+                # Ensure IPv6 router discovery is enabled
+                $routerDiscovery = Get-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
+                if ($routerDiscovery) {
+                    if ($routerDiscovery.RouterDiscovery -ne 'Enabled') {
+                        Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv6 -RouterDiscovery Enabled
+                        Write-Host "  IPv6 router discovery enabled"
+                    } else {
+                        Write-Host "  IPv6 SLAAC already enabled"
+                    }
+                }
+            }
+            
+            default {
+                Write-Host "  Unsupported subnet type: $subnetType"
             }
         }
-        
-        Write-Host "Converted netmask $netmask to /$prefix"
     }
-    
-    Write-Host "IP Configuration: $ip/$prefix"
-    
-    # Get gateway
-    $gateway = $iface.Gateway
-    if ($gateway) {
-        Write-Host "Default Gateway: $gateway"
-    }
-    
-    # Configure IP address
-    if ($gateway) {
-        $isOnLink = Test-GatewayOnLink -IpAddress $ip -Prefix $prefix -Gateway $gateway
-        
-        if ($isOnLink) {
-            Write-Host "Configuring with on-link gateway..."
-            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
-                -IPAddress $ip `
-                -PrefixLength $prefix `
-                -DefaultGateway $gateway `
-                -AddressFamily IPv4 | Out-Null
-        } else {
-            Write-Host "Configuring with off-link gateway..."
-            
-            # Add IP address without gateway
-            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
-                -IPAddress $ip `
-                -PrefixLength $prefix `
-                -AddressFamily IPv4 | Out-Null
-            
-            # Add host route to gateway
-            Write-Host "Adding host route to gateway $gateway..."
-            New-NetRoute -DestinationPrefix "$gateway/32" `
-                -InterfaceIndex $adapter.InterfaceIndex `
-                -NextHop "0.0.0.0" | Out-Null
-            Write-Host "Host route added successfully"
-            
-            # Add default route via gateway
-            Write-Host "Adding default route via $gateway..."
-            New-NetRoute -DestinationPrefix "0.0.0.0/0" `
-                -InterfaceIndex $adapter.InterfaceIndex `
-                -NextHop $gateway | Out-Null
-            Write-Host "Default route added successfully"
-        }
-    } else {
-        Write-Host "Configuring without gateway..."
-        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex `
-            -IPAddress $ip `
-            -PrefixLength $prefix `
-            -AddressFamily IPv4 | Out-Null
-    }
-    
-    Write-Host "IP configuration applied successfully"
     
     # Configure DNS - use global nameservers from network config
     $dns = if ($nameservers.Count -gt 0) { $nameservers } else { $iface.DnsServers }
     
     if ($dns.Count -gt 0) {
-        Write-Host "Configuring DNS: $($dns -join ', ')"
-        Set-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex `
-            -ServerAddresses $dns
+        # Check current DNS configuration
+        $currentDNS = (Get-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
+        $dnsChanged = $false
+        
+        if ($currentDNS) {
+            # Compare DNS servers
+            if ($currentDNS.Count -ne $dns.Count) {
+                $dnsChanged = $true
+            } else {
+                for ($i = 0; $i -lt $dns.Count; $i++) {
+                    if ($currentDNS[$i] -ne $dns[$i]) {
+                        $dnsChanged = $true
+                        break
+                    }
+                }
+            }
+        } else {
+            $dnsChanged = $true
+        }
+        
+        if ($dnsChanged) {
+            Write-Host "Configuring DNS: $($dns -join ', ')"
+            Set-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex `
+                -ServerAddresses $dns
+        } else {
+            Write-Host "DNS already configured correctly"
+        }
     }
     
     # Configure DNS search domain for all interfaces
     if ($searchDomain) {
-        Write-Host "Configuring DNS search domain: $searchDomain"
-        Set-DnsClient -InterfaceIndex $adapter.InterfaceIndex `
-            -ConnectionSpecificSuffix $searchDomain
-        Write-Host "DNS search domain configured successfully"
+        $currentSuffix = (Get-DnsClient -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue).ConnectionSpecificSuffix
+        if ($currentSuffix -ne $searchDomain) {
+            Write-Host "Configuring DNS search domain: $searchDomain"
+            Set-DnsClient -InterfaceIndex $adapter.InterfaceIndex `
+                -ConnectionSpecificSuffix $searchDomain
+            Write-Host "DNS search domain configured successfully"
+        } else {
+            Write-Host "DNS search domain already configured correctly"
+        }
     }
 }
 
