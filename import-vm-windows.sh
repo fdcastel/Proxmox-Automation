@@ -91,8 +91,7 @@ VM_BALLOON=0
 
 # Create VM
 #   Disk 0: EFI
-#   Disk 1: TPM
-#   Disk 2: Main drive (imported from image)
+#   Disk 1: Main drive (imported from image)
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -108,7 +107,6 @@ qm create $VM_ID --name $VM_NAME \
     --vga type=virtio \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
-    --tpmstate0 "$VM_STORAGE:0,version=v2.0" \
     --scsi2 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
     --boot c \
     --bootdisk scsi2 \

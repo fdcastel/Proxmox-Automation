@@ -106,9 +106,8 @@ if [ -z "$VM_CIPASSWORD" ] && [ -z "$VM_SSHKEYS" ]; then show_usage "You must in
 
 # Create VM
 #   Disk 0: EFI
-#   Disk 1: TPM
-#   Disk 2: Main drive (imported from image)
-#   Disk 3: cloud-init (Do not use --ide or Debian 'genericcloud' image will not work.)
+#   Disk 1: Main drive (imported from image)
+#   Disk 2: cloud-init (Do not use --ide or Debian 'genericcloud' image will not work.)
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
     --ostype $VM_OSTYPE \
@@ -124,7 +123,6 @@ qm create $VM_ID --name $VM_NAME \
     --vga type=virtio \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
-    --tpmstate0 "$VM_STORAGE:0,version=v2.0" \
     --scsi2 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
     --scsi3 $VM_STORAGE:cloudinit \
     --boot c \

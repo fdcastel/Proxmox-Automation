@@ -377,8 +377,7 @@ VM_BALLOON=0
 
 # Create VM
 #   Disk 0: EFI
-#   Disk 1: TPM
-#   Disk 2: Main drive
+#   Disk 1: Main drive
 #   IDE 0: Windows ISO
 #   IDE 1: cloud-init
 #   IDE 2: Unattended ISO
@@ -398,7 +397,6 @@ qm create $VM_ID --name $VM_NAME \
     --vga type=virtio \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:1,efitype=4m,pre-enrolled-keys=1" \
-    --tpmstate0 "$VM_STORAGE:1,version=v2.0" \
     --scsi0 "$VM_STORAGE:$VM_DISKSIZE" \
     --ide0 "file=$VM_ISO,media=cdrom" \
     --ide1 "$VM_STORAGE:cloudinit" \
