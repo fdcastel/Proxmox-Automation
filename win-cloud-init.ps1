@@ -444,6 +444,9 @@ foreach ($iface in $interfaces) {
     }
     
     Write-Host "Matched Adapter: $($adapter.Name) (Index: $($adapter.InterfaceIndex), MAC: $($adapter.MacAddress))"
+
+    Write-Host "  Renaming adapter to $($iface.Name)..."
+    Rename-NetAdapter -Name $adapter.Name -NewName $iface.Name -ErrorAction Continue
     
     # Process each subnet configuration
     foreach ($subnet in $iface.Subnets) {
