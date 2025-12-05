@@ -154,15 +154,16 @@ NET_COUNT=$(qm config $VM_ID | grep -e ^net | wc -l)
 # Build the interface lines for /etc/issue
 INTERFACE_LINES=""
 for ((i=0; i<NET_COUNT; i++)); do
-    INTERFACE_LINES="${INTERFACE_LINES}     eth${i}: \4{eth${i}}\n"
+    INTERFACE_LINES="${INTERFACE_LINES}       eth${i}: \4{eth${i}}"$'\t'"\6{eth${i}}"$'\n'
 done
+INTERFACE_LINES="${INTERFACE_LINES}"$'\n      '
 
 cat >> $CI_USER_FILE_FULL <<EOF
 write_files:
  - content: |
-     \S{PRETTY_NAME} \n \l
+     \S{PRETTY_NAME}    \n    \l
 
-${INTERFACE_LINES}     
+${INTERFACE_LINES}
    path: /etc/issue
    owner: root:root
    permissions: '0644'
