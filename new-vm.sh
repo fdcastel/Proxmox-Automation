@@ -123,12 +123,12 @@ qm create $VM_ID --name $VM_NAME \
     --vga type=virtio \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:0,efitype=4m,pre-enrolled-keys=1" \
-    --scsi2 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
-    --scsi3 $VM_STORAGE:cloudinit \
-    --boot c \
-    --bootdisk scsi2 \
+    --scsi0 $VM_STORAGE:0,discard=on,iothread=1,ssd=1,import-from=$VM_IMAGE \
+    --scsi1 $VM_STORAGE:cloudinit \
+    --boot "order=scsi0" \
+    --citype nocloud \
     "$@" # pass remaining arguments -- https://stackoverflow.com/a/4824637/33244
-qm resize $VM_ID scsi2 $VM_DISKSIZE
+qm resize $VM_ID scsi0 $VM_DISKSIZE
 
 # Initialize VM via cloud-init
 mkdir -p /var/lib/vz/snippets/
@@ -136,7 +136,6 @@ CI_USER_FILE="vm-$VM_ID-cloud-init-user.yml"
 CI_USER_FILE_FULL="/var/lib/vz/snippets/$CI_USER_FILE"
 
 qm set $VM_ID --serial0 socket \
-    --ipconfig0 ip=dhcp \
     --cicustom "user=local:snippets/$CI_USER_FILE"
 
 if [ -n "$VM_CIPASSWORD" ]; then 
@@ -149,14 +148,21 @@ fi;
   
 qm cloudinit dump $VM_ID user > $CI_USER_FILE_FULL
 
-INTERFACE_NAME='eth0'
+# Detect number of network interfaces configured
+NET_COUNT=$(qm config $VM_ID | grep -e ^net | wc -l)
+
+# Build the interface lines for /etc/issue
+INTERFACE_LINES=""
+for ((i=0; i<NET_COUNT; i++)); do
+    INTERFACE_LINES="${INTERFACE_LINES}     eth${i}: \4{eth${i}}\n"
+done
+
 cat >> $CI_USER_FILE_FULL <<EOF
 write_files:
  - content: |
      \S{PRETTY_NAME} \n \l
 
-     $INTERFACE_NAME: \4{$INTERFACE_NAME}
-     
+${INTERFACE_LINES}     
    path: /etc/issue
    owner: root:root
    permissions: '0644'
