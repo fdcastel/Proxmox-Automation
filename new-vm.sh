@@ -167,6 +167,15 @@ ${INTERFACE_LINES}
    owner: root:root
    permissions: '0644'
 
+ - content: |
+     # Reduces wait timeout from 2 minutes to 10 seconds. -- https://unix.stackexchange.com/a/639072
+     [Service]
+     ExecStart=
+     ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --timeout=10
+   path: /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf
+   owner: root:root
+   permissions: '0644'
+
 power_state:
   mode: reboot
   timeout: 300
