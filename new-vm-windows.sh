@@ -323,6 +323,16 @@ genisoimage -J -r -V "Unattended" -input-charset utf-8 -o "$UNATTENDED_ISO" "$TE
 VM_BALLOON=0
 
 # Create VM
+
+# "The VirtIO Block controller, often just called VirtIO or virtio-blk, is an older type of paravirtualized
+#   controller. It has been superseded by the VirtIO SCSI Controller, in terms of features."
+# Source: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_hard_disk
+
+# To present disk as 4k physical and logical sector to a VM:
+#   --args "-global scsi-hd.physical_block_size=4096 -global scsi-hd.logical_block_size=4096"
+# Source: https://bugzilla.proxmox.com/show_bug.cgi?id=3282
+
+# Drive mapping:
 #   scsi0   Main drive        C
 #   ide0    Windows ISO       D
 #   ide1    VirtIO ISO        F
@@ -344,7 +354,7 @@ qm create $VM_ID --name $VM_NAME \
     --vga type=virtio \
     --onboot 1 \
     --efidisk0 "$VM_STORAGE:1,efitype=4m,pre-enrolled-keys=1" \
-    --scsi0 "$VM_STORAGE:$VM_DISKSIZE" \
+    --scsi0 "$VM_STORAGE:$VM_DISKSIZE,discard=on,iothread=1,ssd=1" \
     --ide0 "file=$VM_ISO,media=cdrom" \
     --ide1 "file=$VM_VIRTIO_ISO,media=cdrom" \
     --ide2 "file=$UNATTENDED_ISO,media=cdrom" \
