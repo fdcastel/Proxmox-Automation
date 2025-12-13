@@ -304,7 +304,7 @@ The script supports the following parameters:
 
 - **`-Install`**: Installs the script as a Windows Scheduled Task that runs at system startup
   - Copies the script to `C:\Windows\Setup\Scripts\`
-  - Creates a scheduled task named "CloudInit-WindowsSetup"
+  - Creates a scheduled task named "PSCloudInit-Startup"
   - Task runs at startup with SYSTEM privileges
 
 - **`-Verbose`**: Enable detailed diagnostic output for troubleshooting
@@ -403,7 +403,7 @@ Potential improvements for future versions:
 - **New Feature:** Installation as scheduled task
   - Added `-Install` parameter to set up automatic startup execution
   - Copies script to `C:\Windows\Setup\Scripts\`
-  - Creates scheduled task "CloudInit-WindowsSetup" to run at startup
+  - Creates scheduled task "PSCloudInit-Startup" to run at startup
   - Task runs with SYSTEM privileges
 - **New Feature:** Configurable cloud-init drive timeout
   - Added `-SecondsForCloudInitDrive` parameter (default: 5 seconds)

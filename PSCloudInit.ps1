@@ -228,7 +228,7 @@ function Install-Script {
     }
     
     # Create scheduled task
-    $taskName = "CloudInit-WindowsSetup"
+    $taskName = "PSCloudInit-Startup"
     $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     
     if ($existingTask) {
@@ -265,7 +265,7 @@ function Install-Script {
             -Trigger $trigger `
             -Principal $principal `
             -Settings $settings `
-            -Description "Runs cloud-init configuration at Windows startup" | Out-Null
+            -Description "Runs PSCloudInit configuration at Windows startup" | Out-Null
     }
     
     Write-Host "`nInstallation complete!"
