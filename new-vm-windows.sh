@@ -131,16 +131,16 @@ trap cleanup EXIT
 TEMP_DIR="/tmp/win-vm-setup-$$"
 mkdir -p "$TEMP_DIR/iso_root"
 
-# Copy Cloud-Init Network Script
-echo_err "Copying win-cloud-init.ps1..."
+# Copy PSCloudInit Network Script
+echo_err "Copying PSCloudInit.ps1..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/win-cloud-init.ps1" ]; then
-    cp "$SCRIPT_DIR/win-cloud-init.ps1" "$TEMP_DIR/iso_root/win-cloud-init.ps1"
-elif [ -f "win-cloud-init.ps1" ]; then
-    cp "win-cloud-init.ps1" "$TEMP_DIR/iso_root/win-cloud-init.ps1"
+if [ -f "$SCRIPT_DIR/PSCloudInit.ps1" ]; then
+    cp "$SCRIPT_DIR/PSCloudInit.ps1" "$TEMP_DIR/iso_root/PSCloudInit.ps1"
+elif [ -f "PSCloudInit.ps1" ]; then
+    cp "PSCloudInit.ps1" "$TEMP_DIR/iso_root/PSCloudInit.ps1"
 else
-    echo_err "Error: win-cloud-init.ps1 not found."
-    echo_err "Please ensure win-cloud-init.ps1 is in the same directory as this script."
+    echo_err "Error: PSCloudInit.ps1 not found."
+    echo_err "Please ensure PSCloudInit.ps1 is in the same directory as this script."
     exit 1
 fi
 
@@ -280,7 +280,7 @@ cat > "$TEMP_DIR/iso_root/autounattend.xml" <<EOF
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <Path>cmd.exe /c ECHO powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 &gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
+                    <Path>cmd.exe /c ECHO powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 &gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
                     <Description>Create SetupComplete.cmd script</Description>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
@@ -337,7 +337,7 @@ VM_BALLOON=0
 #   ide0    Windows ISO       D
 #   ide1    VirtIO ISO        F
 #   ide2    Unattended ISO    E
-#   ide3    Cloud-Init        G
+#   ide3    cloud-init drive  G
 echo_err "Creating VM $VM_ID..."
 qm create $VM_ID --name $VM_NAME \
     --cpu host \

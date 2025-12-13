@@ -1,8 +1,8 @@
-# win-cloud-init
+# PSCloudInit
 
 ## Overview
 
-`win-cloud-init.ps1` is a minimal PowerShell implementation of cloud-init functionality for Windows VMs running on Proxmox VE.
+`PSCloudInit.ps1` is a minimal PowerShell implementation of cloud-init functionality for Windows VMs running on Proxmox VE.
 
 It provides basic support for the configuration parameters that Proxmox's cloud-init feature generates, focusing specifically on network configuration and SSH key management.
 
@@ -29,9 +29,9 @@ The script is executed during Windows installation via `SetupComplete.cmd`, whic
 2. The ISO is attached to the VM as drive `E:\`
 3. Windows installation includes `SetupComplete.cmd` in `C:\Windows\Setup\Scripts\`
 4. After installation completes, Windows automatically runs `SetupComplete.cmd`
-5. `SetupComplete.cmd` executes `powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1`
+5. `SetupComplete.cmd` executes `powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1`
 
-### 2. Cloud-Init Drive Detection
+### 2. Cloud-init Drive Detection
 
 The script looks for a volume labeled `cidata` (Proxmox's NoCloud format):
 
@@ -233,7 +233,7 @@ This makes the script safe to use for both initial configuration and subsequent 
 
 ### 8. Logging
 
-All output is logged to `C:\Windows\Panther\win-cloud-init.log` using PowerShell's `Start-Transcript` and `Stop-Transcript` cmdlets.
+All output is logged to `C:\Windows\Panther\PSCloudInit.log` using PowerShell's `Start-Transcript` and `Stop-Transcript` cmdlets.
 
 ## Limitations and Known Issues
 
@@ -328,11 +328,11 @@ To install the script to run automatically at Windows startup:
 
 ```powershell
 # Must be run with Administrator privileges
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Install
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Install
 ```
 
 This will:
-1. Copy the script to `C:\Windows\Setup\Scripts\win-cloud-init.ps1`
+1. Copy the script to `C:\Windows\Setup\Scripts\PSCloudInit.ps1`
 2. Create a scheduled task that runs at system startup
 3. Configure the task to run with SYSTEM privileges
 4. Set a 30-second timeout for cloud-init drive detection
@@ -343,19 +343,19 @@ While designed for automated execution, the script can be run manually:
 
 ```powershell
 # Basic execution (must be run with Administrator privileges)
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1
 
 # With custom timeout
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -SecondsForCloudInitDrive 30
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -SecondsForCloudInitDrive 30
 
 # With verbose output for troubleshooting
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Verbose
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Verbose
 
 # Preview mode (no changes made)
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -WhatIf
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -WhatIf
 
 # Combination of parameters
-powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Verbose -SecondsForCloudInitDrive 10
+powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Verbose -SecondsForCloudInitDrive 10
 ```
 
 Where `E:` is the drive letter of the mounted cloud-init drive.
@@ -365,7 +365,7 @@ Where `E:` is the drive letter of the mounted cloud-init drive.
 Check the log file for execution details:
 
 ```powershell
-Get-Content C:\Windows\Panther\win-cloud-init.log
+Get-Content C:\Windows\Panther\PSCloudInit.log
 ```
 
 ### Verification

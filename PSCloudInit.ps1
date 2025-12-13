@@ -3,7 +3,7 @@ param(
     [Parameter(HelpMessage = "Install the script as a Windows Scheduled Task to run at startup")]
     [switch]$Install,
     
-    [Parameter(HelpMessage = "Seconds to wait for Cloud-Init drive to appear")]
+    [Parameter(HelpMessage = "Seconds to wait for cloud-init drive to appear")]
     [int]$SecondsForCloudInitDrive = 5
 )
 
@@ -12,7 +12,7 @@ param(
 function Wait-CloudInitDrive {
     <#
     .SYNOPSIS
-        Waits for the Cloud-Init drive to appear
+        Waits for the cloud-init drive to appear
     .PARAMETER Seconds
         Number of seconds to wait for the drive to appear
     #>
@@ -22,7 +22,7 @@ function Wait-CloudInitDrive {
         [int]$Seconds = 5
     )
     
-    Write-Verbose "Waiting up to $Seconds seconds for Cloud-Init drive to appear..."
+    Write-Verbose "Waiting up to $Seconds seconds for cloud-init drive to appear..."
     $cidata = $null
     
     for ($i = 0; $i -lt $Seconds; $i++) {
@@ -30,7 +30,7 @@ function Wait-CloudInitDrive {
         $cidata = Get-Volume -FileSystemLabel "cidata" -ErrorAction SilentlyContinue
         
         if ($cidata) {
-            Write-Verbose "Cloud-Init drive found on attempt $($i + 1)"
+            Write-Verbose "cloud-init drive found on attempt $($i + 1)"
             break
         }
         
@@ -38,8 +38,8 @@ function Wait-CloudInitDrive {
     }
     
     if (-not $cidata) {
-        Write-Verbose "Cloud-Init drive not found after $Seconds attempts"
-        throw "Cloud-Init drive not found."
+        Write-Verbose "cloud-init drive not found after $Seconds attempts"
+        throw "cloud-init drive not found."
     }
     
     $driveLetter = $cidata.DriveLetter + ":"
@@ -201,12 +201,12 @@ function Install-Script {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param()
     
-    $scriptName = "win-cloud-init.ps1"
+    $scriptName = "PSCloudInit.ps1"
     $targetDir = "C:\Windows\Setup\Scripts"
     $targetPath = Join-Path $targetDir $scriptName
     $sourcePath = Join-Path $PSScriptRoot $scriptName
     
-    Write-Host "Installing win-cloud-init as a startup task..."
+    Write-Host "Installing PSCloudInit as a startup task..."
     Write-Verbose "Source: $sourcePath"
     Write-Verbose "Target: $targetPath"
     
@@ -280,7 +280,7 @@ function Get-UserDataConfig {
     .SYNOPSIS
         Parse user-data file and extract configuration
     .PARAMETER DriveLetter
-        Drive letter of the Cloud-Init drive
+        Drive letter of the cloud-init drive
     #>
     [CmdletBinding()]
     param(
@@ -419,7 +419,7 @@ function Get-MetaDataConfig {
     .SYNOPSIS
         Parse meta-data file
     .PARAMETER DriveLetter
-        Drive letter of the Cloud-Init drive
+        Drive letter of the cloud-init drive
     #>
     [CmdletBinding()]
     param(
@@ -453,7 +453,7 @@ function Get-NetworkConfig {
     .SYNOPSIS
         Parse network-config file
     .PARAMETER DriveLetter
-        Drive letter of the Cloud-Init drive
+        Drive letter of the cloud-init drive
     #>
     [CmdletBinding()]
     param(
@@ -989,16 +989,16 @@ if ($Install) {
 }
 
 # Setup logging
-$LogPath = "C:\Windows\Panther\win-cloud-init.log"
+$LogPath = "C:\Windows\Panther\PSCloudInit.log"
 Start-Transcript -Path $LogPath -Append
 $ErrorActionPreference = "Stop"
 
 try {
-    Write-Host "Starting Cloud-Init Configuration (nocloud format)..."
+    Write-Host "Starting PSCloudInit configuration..."
     Write-Verbose "Script started at: $(Get-Date)"
     Write-Verbose "Parameters: SecondsForCloudInitDrive=$SecondsForCloudInitDrive"
     
-    # Wait for Cloud-Init drive
+    # Wait for cloud-init drive
     $driveLetter = Wait-CloudInitDrive -Seconds $SecondsForCloudInitDrive
     
     # Parse user-data
@@ -1032,11 +1032,11 @@ try {
     # Install SSH keys
     Install-SshKeys -UserData $userDataConfig.Content
     
-    Write-Host "`nCloud-Init configuration completed successfully."
+    Write-Host "`nPSCloudInit configuration completed successfully."
     Write-Verbose "Script completed at: $(Get-Date)"
 }
 catch {
-    Write-Error "Cloud-Init script failed: $($_.Exception.Message)"
+    Write-Error "PSCloudInit script failed: $($_.Exception.Message)"
     Write-Verbose "Error details: $($_.Exception)"
     Write-Verbose "Stack trace: $($_.ScriptStackTrace)"
     Stop-Transcript

@@ -362,7 +362,7 @@ The script automatically:
 - Installs VirtIO drivers for optimal performance
 - Installs QEMU Guest Agent during setup
 - Configures the Administrator password and other options passed by Proxmox cloud-init configuration.
-  - This script uses the [`win-cloud-init.ps1`](win-cloud-init.ps1) script during the VM’s first run. You can learn more about it [here](win-cloud-init.md).
+  - This script uses the [`PSCloudInit.ps1`](PSCloudInit.ps1) script during the VM’s first run. You can learn more about it [here](PSCloudInit.md).
 
 Requires the VirtIO drivers ISO. Download it with `./download-virtio-image.sh`.
 
