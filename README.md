@@ -433,41 +433,12 @@ It's recommended that the `vhdx` includes the following:
 
 - [Windows VirtIO Drivers](https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers) (recommended)
 - [QEMU Guest Agent](https://pve.proxmox.com/wiki/Qemu-guest-agent) (recommended)
-- [Cloudbase-Init](https://cloudbase.it/cloudbase-init/) (optional)
 
 Please refer to [Hyper-V Automation](https://github.com/fdcastel/Hyper-V-Automation#examples) project for more information.
 
 
 
 ### Examples
-
-Creates a Windows VM from a [`vhdx` template](https://github.com/fdcastel/Hyper-V-Automation#create-a-windows-vhdx-template-for-qemu) previously created with [`New-VHDXFromWindowsImage.ps1`](https://github.com/fdcastel/Hyper-V-Automation#new-vhdxfromwindowsimage-) and initializes the Administrator password via CloudBase-Init.
-
-```bash
-VM_ID=103
-./import-vm-windows.sh $VM_ID \
-    --image '/tmp/Server2025Standard-template.vhdx' \
-    --name 'tst-win2025' \
-    --ide3 local-zfs:cloudinit \
-    --cipassword 'Unsaf3@AnySp33d!'
-
-# You can run any commands on VM with "qm guest exec":
-qm guest exec $VM_ID -- powershell -c $(cat << 'EOF'
-    <# Enables ICMP Echo Request (ping) for IPv4 and IPv6 #>
-    Get-NetFirewallRule -Name 'FPS-ICMP*' | Set-NetFirewallRule -Enabled:True ;
-
-    <# Enables Remote Desktop (more secure) #>
-    $tsSettings = Get-WmiObject -Class 'Win32_TerminalServiceSetting' -Namespace root\cimv2\terminalservices ;
-    $tsSettings.SetAllowTsConnections(1, 1) ;
-    Enable-NetFirewallRule -DisplayGroup "Remote Desktop" ;
-
-    <# Enables SSH (Server 2025 only) #>
-    Start-Service sshd ;
-    Set-Service -Name sshd -StartupType 'Automatic' ;
-    Set-NetFirewallRule OpenSSH-Server-In-TCP -Profile Any
-EOF
-)
-```
 
 Creates a Windows VM from a [previously prepared `vhdx`](https://github.com/fdcastel/Hyper-V-Automation#prepare-a-vhdx-for-qemu-migration) of an existing Hyper-V VM.
 
