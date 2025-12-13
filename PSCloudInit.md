@@ -39,7 +39,7 @@ The script looks for a volume labeled `cidata` (Proxmox's NoCloud format):
 $cidata = Get-Volume -FileSystemLabel "cidata"
 ```
 
-By default, it waits up to 5 seconds for the drive to appear (configurable via `-SecondsForCloudInitDrive` parameter). When installed as a scheduled task, it uses a 30-second timeout to account for potential delays in drive mounting during the boot process.
+By default, it waits up to 5 seconds for the drive to appear.
 
 ### 3. Configuration Files
 
@@ -306,11 +306,6 @@ The script supports the following parameters:
   - Copies the script to `C:\Windows\Setup\Scripts\`
   - Creates a scheduled task named "CloudInit-WindowsSetup"
   - Task runs at startup with SYSTEM privileges
-  - When installed, uses a 30-second timeout for cloud-init drive detection
-
-- **`-SecondsForCloudInitDrive`**: Number of seconds to wait for the cloud-init drive to appear (default: 5)
-  - Use higher values (e.g., 30) for scheduled task execution at boot
-  - Use lower values for manual execution when drive is already mounted
 
 - **`-Verbose`**: Enable detailed diagnostic output for troubleshooting
   - Shows each decision branch taken during execution
@@ -335,7 +330,7 @@ This will:
 1. Copy the script to `C:\Windows\Setup\Scripts\PSCloudInit.ps1`
 2. Create a scheduled task that runs at system startup
 3. Configure the task to run with SYSTEM privileges
-4. Set a 30-second timeout for cloud-init drive detection
+4. Run the configuration process if a `cidata` volume drive is found.
 
 ### Standalone Execution
 
@@ -344,9 +339,6 @@ While designed for automated execution, the script can be run manually:
 ```powershell
 # Basic execution (must be run with Administrator privileges)
 powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1
-
-# With custom timeout
-powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -SecondsForCloudInitDrive 30
 
 # With verbose output for troubleshooting
 powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Verbose
@@ -412,7 +404,7 @@ Potential improvements for future versions:
   - Added `-Install` parameter to set up automatic startup execution
   - Copies script to `C:\Windows\Setup\Scripts\`
   - Creates scheduled task "CloudInit-WindowsSetup" to run at startup
-  - Task runs with SYSTEM privileges and 30-second timeout
+  - Task runs with SYSTEM privileges
 - **New Feature:** Configurable cloud-init drive timeout
   - Added `-SecondsForCloudInitDrive` parameter (default: 5 seconds)
   - Different timeouts for manual execution vs. scheduled task

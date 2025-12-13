@@ -38,7 +38,7 @@ function Wait-CloudInitDrive {
     }
     
     if (-not $cidata) {
-        Write-Verbose "cloud-init drive not found after $Seconds attempts"
+        Write-Host "cloud-init drive not found after $Seconds seconds."
         throw "cloud-init drive not found."
     }
     
@@ -244,7 +244,7 @@ function Install-Script {
         
         $action = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
-            -Argument "-ExecutionPolicy Bypass -File `"$targetPath`" -SecondsForCloudInitDrive 30"
+            -Argument "-ExecutionPolicy Bypass -File `"$targetPath`""
         
         $trigger = New-ScheduledTaskTrigger -AtStartup
         
@@ -266,9 +266,6 @@ function Install-Script {
             -Principal $principal `
             -Settings $settings `
             -Description "Runs cloud-init configuration at Windows startup" | Out-Null
-        
-        Write-Host "Scheduled task created successfully"
-        Write-Verbose "Task will run at startup with 30 second wait time"
     }
     
     Write-Host "`nInstallation complete!"
@@ -983,9 +980,7 @@ function Set-StaticIpConfiguration {
 
 # Handle Install parameter
 if ($Install) {
-    Write-Verbose "Install mode activated"
     Install-Script
-    exit 0
 }
 
 # Setup logging

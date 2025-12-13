@@ -280,7 +280,7 @@ cat > "$TEMP_DIR/iso_root/autounattend.xml" <<EOF
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <Path>cmd.exe /c ECHO powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 &gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
+                    <Path>cmd.exe /c ECHO powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Install &gt; C:\Windows\Setup\Scripts\SetupComplete.cmd</Path>
                     <Description>Create SetupComplete.cmd script</Description>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
