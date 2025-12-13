@@ -39,7 +39,7 @@ The script looks for a volume labeled `cidata` (Proxmox's NoCloud format):
 $cidata = Get-Volume -FileSystemLabel "cidata"
 ```
 
-It waits up to 30 seconds for the drive to appear, accounting for potential delays in drive mounting during the boot process.
+By default, it waits up to 5 seconds for the drive to appear (configurable via `-SecondsForCloudInitDrive` parameter). When installed as a scheduled task, it uses a 30-second timeout to account for potential delays in drive mounting during the boot process.
 
 ### 3. Configuration Files
 
@@ -298,13 +298,64 @@ New-NetRoute -DestinationPrefix "$gateway/32" -NextHop "0.0.0.0"
 - VM created with Proxmox cloud-init drive configured
 - Script must be executed during or after Windows setup
 
+### Parameters
+
+The script supports the following parameters:
+
+- **`-Install`**: Installs the script as a Windows Scheduled Task that runs at system startup
+  - Copies the script to `C:\Windows\Setup\Scripts\`
+  - Creates a scheduled task named "CloudInit-WindowsSetup"
+  - Task runs at startup with SYSTEM privileges
+  - When installed, uses a 30-second timeout for cloud-init drive detection
+
+- **`-SecondsForCloudInitDrive`**: Number of seconds to wait for the cloud-init drive to appear (default: 5)
+  - Use higher values (e.g., 30) for scheduled task execution at boot
+  - Use lower values for manual execution when drive is already mounted
+
+- **`-Verbose`**: Enable detailed diagnostic output for troubleshooting
+  - Shows each decision branch taken during execution
+  - Displays parsing details and configuration validation
+  - Useful for debugging configuration issues
+
+- **`-WhatIf`**: Preview mode - shows what actions would be taken without making changes
+  - Displays proposed network configurations
+  - Shows SSH keys that would be installed
+  - Safe for testing before actual execution
+
+### Installation as Startup Task
+
+To install the script to run automatically at Windows startup:
+
+```powershell
+# Must be run with Administrator privileges
+powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Install
+```
+
+This will:
+1. Copy the script to `C:\Windows\Setup\Scripts\win-cloud-init.ps1`
+2. Create a scheduled task that runs at system startup
+3. Configure the task to run with SYSTEM privileges
+4. Set a 30-second timeout for cloud-init drive detection
+
 ### Standalone Execution
 
 While designed for automated execution, the script can be run manually:
 
 ```powershell
-# Must be run with Administrator privileges
+# Basic execution (must be run with Administrator privileges)
 powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1
+
+# With custom timeout
+powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -SecondsForCloudInitDrive 30
+
+# With verbose output for troubleshooting
+powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Verbose
+
+# Preview mode (no changes made)
+powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -WhatIf
+
+# Combination of parameters
+powershell.exe -ExecutionPolicy Bypass -File E:\win-cloud-init.ps1 -Verbose -SecondsForCloudInitDrive 10
 ```
 
 Where `E:` is the drive letter of the mounted cloud-init drive.
@@ -351,7 +402,33 @@ Potential improvements for future versions:
 
 ## Version History
 
-### Version 2.1 (Current)
+### Version 3.0 (Current)
+- **New Feature:** CmdletBinding support for PowerShell best practices
+  - Added `-Verbose` parameter for detailed diagnostic output
+  - Added `-WhatIf` parameter for preview mode (no changes made)
+  - Write-Verbose used for debug information at each decision branch
+  - Write-Host used for user-facing action notifications
+- **New Feature:** Installation as scheduled task
+  - Added `-Install` parameter to set up automatic startup execution
+  - Copies script to `C:\Windows\Setup\Scripts\`
+  - Creates scheduled task "CloudInit-WindowsSetup" to run at startup
+  - Task runs with SYSTEM privileges and 30-second timeout
+- **New Feature:** Configurable cloud-init drive timeout
+  - Added `-SecondsForCloudInitDrive` parameter (default: 5 seconds)
+  - Different timeouts for manual execution vs. scheduled task
+- **Refactoring:** Improved code organization
+  - All functions moved to dedicated section at file start
+  - Main script execution after function declarations
+  - No inline function definitions in main code
+- **Enhancement:** Centralized error handling
+  - Single try/catch/finally block around main script
+  - Consistent error reporting and cleanup
+  - Proper transcript handling in all code paths
+- **Enhancement:** Dedicated function for cloud-init drive detection
+  - `Wait-CloudInitDrive` function with configurable timeout
+  - Better logging and verbose output
+
+### Version 2.1
 - **New Feature:** Full IPv6 support
   - Configure static IPv6 addresses
   - Enable DHCPv6 for dynamic IPv6 addressing
