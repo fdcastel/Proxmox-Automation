@@ -905,13 +905,32 @@ function Set-StaticIpConfiguration {
         Write-Verbose "  No gateway specified"
     }
     
-    # Check if this IP is already configured (idempotency)
-    $existingIP = Get-NetIPAddress -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily $addressFamily -ErrorAction SilentlyContinue |
-        Where-Object { $_.IPAddress -eq $ip }
-    
+    $existingIPs = Get-NetIPAddress -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily $addressFamily -ErrorAction SilentlyContinue
+
+    $existingIP = $existingIPs | Where-Object { $_.IPAddress -eq $ip }
+    $additionalIPs = $existingIPs | Where-Object { $_.IPAddress -ne $ip }
+
+    # Check if this IP is already configured
     if ($existingIP) {
         Write-Verbose "  IP address $ip already configured, skipping"
+
+        if ($additionalIPs) {
+            Write-Warning "  Additional IP addresses found on interface:"
+            foreach ($addr in $additionalIPs) {
+                Write-Warning "    - $($addr.IPAddress)/$($addr.PrefixLength)"
+            }
+        }
         return
+    }
+
+    if ($additionalIPs) {
+        # Remove additional IPs
+        foreach ($addr in $additionalIPs) {
+            if ($PSCmdlet.ShouldProcess($Adapter.Name, "Remove additional IP address $($addr.IPAddress)/$($addr.PrefixLength)")) {
+                Write-Host "  Removing additional IP address: $($addr.IPAddress)/$($addr.PrefixLength)"
+                Remove-NetIPAddress -InterfaceIndex $Adapter.InterfaceIndex -IPAddress $addr.IPAddress -Confirm:$false
+            }
+        }
     }
     
     # Configure IP address
