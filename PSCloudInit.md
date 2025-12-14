@@ -57,7 +57,7 @@ Example:
 #cloud-config
 hostname: tst241
 manage_etc_hosts: true
-fqdn: tst241.poa.dalcastel.com
+fqdn: tst241.example.com
 password: asdf
 ssh_authorized_keys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABQ...
@@ -124,7 +124,7 @@ config:
       - '192.168.10.1'
       - '2001:4860:4860::8888'  # IPv6 DNS (Google Public DNS)
     search:
-      - 'poa.dalcastel.com'
+      - 'example.com'
 ```
 
 ### 4. SSH Key Installation
@@ -345,9 +345,6 @@ powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Verbose
 
 # Preview mode (no changes made)
 powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -WhatIf
-
-# Combination of parameters
-powershell.exe -ExecutionPolicy Bypass -File E:\PSCloudInit.ps1 -Verbose -SecondsForCloudInitDrive 10
 ```
 
 Where `E:` is the drive letter of the mounted cloud-init drive.
@@ -405,9 +402,6 @@ Potential improvements for future versions:
   - Copies script to `C:\Windows\Setup\Scripts\`
   - Creates scheduled task "PSCloudInit-Startup" to run at startup
   - Task runs with SYSTEM privileges
-- **New Feature:** Configurable cloud-init drive timeout
-  - Added `-SecondsForCloudInitDrive` parameter (default: 5 seconds)
-  - Different timeouts for manual execution vs. scheduled task
 - **Refactoring:** Improved code organization
   - All functions moved to dedicated section at file start
   - Main script execution after function declarations

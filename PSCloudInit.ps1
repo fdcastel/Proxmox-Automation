@@ -1,10 +1,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(HelpMessage = "Install the script as a Windows Scheduled Task to run at startup")]
-    [switch]$Install,
-    
-    [Parameter(HelpMessage = "Seconds to wait for cloud-init drive to appear")]
-    [int]$SecondsForCloudInitDrive = 5
+    [switch]$Install
 )
 
 #region Functions
@@ -47,74 +44,6 @@ function Wait-CloudInitDrive {
     Write-Verbose "Drive properties: DriveLetter=$($cidata.DriveLetter), FileSystemLabel=$($cidata.FileSystemLabel)"
     
     return $driveLetter
-}
-
-function ConvertFrom-SimpleYaml {
-    <#
-    .SYNOPSIS
-        Parse simple YAML (for cloud-init nocloud format)
-    .PARAMETER Content
-        YAML content as string
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Content
-    )
-    
-    Write-Verbose "Parsing YAML content..."
-    $result = @{}
-    $currentKey = $null
-    $currentValue = @()
-    $inArray = $false
-    
-    foreach ($line in $Content -split "`r?`n") {
-        # Skip comments and empty lines
-        if ($line -match '^\s*#' -or $line -match '^\s*$') {
-            continue
-        }
-        
-        # Check for key-value pairs
-        if ($line -match '^(\w+):\s*(.*)$') {
-            # Save previous key if exists
-            if ($currentKey) {
-                if ($inArray) {
-                    $result[$currentKey] = $currentValue
-                } else {
-                    $result[$currentKey] = $currentValue[0]
-                }
-            }
-            
-            $currentKey = $matches[1]
-            $value = $matches[2].Trim()
-            Write-Verbose "Found key: $currentKey"
-            
-            if ($value) {
-                $currentValue = @($value)
-                $inArray = $false
-            } else {
-                $currentValue = @()
-                $inArray = $false
-            }
-        }
-        # Check for array items
-        elseif ($line -match '^\s+-\s+(.+)$') {
-            $inArray = $true
-            $currentValue += $matches[1].Trim()
-        }
-    }
-    
-    # Save last key
-    if ($currentKey) {
-        if ($inArray) {
-            $result[$currentKey] = $currentValue
-        } else {
-            $result[$currentKey] = $currentValue[0]
-        }
-    }
-    
-    Write-Verbose "Parsed $($result.Keys.Count) keys from YAML"
-    return $result
 }
 
 function Convert-CidrToNetmask {
@@ -201,50 +130,54 @@ function Install-Script {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param()
     
-    $scriptName = "PSCloudInit.ps1"
-    $targetDir = "C:\Windows\Setup\Scripts"
-    $targetPath = Join-Path $targetDir $scriptName
-    $sourcePath = Join-Path $PSScriptRoot $scriptName
+    $targetFolder = "C:\Windows\Setup\Scripts"
+
+    $sourceItem = Get-Item $PSCommandPath
+    $targetFile = Join-Path $targetFolder $sourceItem.Name
     
     Write-Host "Installing PSCloudInit as a startup task..."
-    Write-Verbose "Source: $sourcePath"
-    Write-Verbose "Target: $targetPath"
-    
-    # Create directory if it doesn't exist
-    if (-not (Test-Path $targetDir)) {
-        if ($PSCmdlet.ShouldProcess($targetDir, "Create directory")) {
-            Write-Host "Creating directory: $targetDir"
-            New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-        }
-    } else {
-        Write-Verbose "Directory already exists: $targetDir"
-    }
+    Write-Verbose "Source: $sourceItem"
+    Write-Verbose "Target: $targetFile"
     
     # Copy script
-    if ($PSCmdlet.ShouldProcess($targetPath, "Copy script")) {
-        Write-Host "Copying script to: $targetPath"
-        Copy-Item -Path $sourcePath -Destination $targetPath -Force
+    $copyScript = $true
+    if (Test-Path $targetFile) {
+        Write-Verbose "Existing script found at target location."
+        $targetItem = Get-Item $targetFile
+
+        if ($sourceItem.Directory.FullName -eq $targetItem.Directory.FullName) {
+            Write-Warning "Source and target are the same. Skipping copy."
+            $copyScript = $false
+        }
+    }
+
+    if ($copyScript -and $PSCmdlet.ShouldProcess($targetFile, "Copy script")) {
+        Write-Host "  Copying script to: $targetFile"
+
+        # Create directory if it doesn't exist
+        New-Item -Path $targetFolder -ItemType Directory -Force | Out-Null
+
+        Copy-Item -Path $sourceItem.FullName -Destination $targetFile -Force
         Write-Verbose "Script copied successfully"
     }
     
     # Create scheduled task
     $taskName = "PSCloudInit-Startup"
     $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    
     if ($existingTask) {
         if ($PSCmdlet.ShouldProcess($taskName, "Remove existing scheduled task")) {
-            Write-Host "Removing existing scheduled task: $taskName"
+            Write-Host "  Removing existing scheduled task: $taskName"
             Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
             Write-Verbose "Existing task removed"
         }
     }
     
     if ($PSCmdlet.ShouldProcess($taskName, "Create scheduled task")) {
-        Write-Host "Creating scheduled task: $taskName"
+        Write-Host "  Creating scheduled task: $taskName"
         
         $action = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
-            -Argument "-ExecutionPolicy Bypass -File `"$targetPath`""
+            -Argument "-ExecutionPolicy Bypass -File `"$targetFile`" -Verbose"
         
         $trigger = New-ScheduledTaskTrigger -AtStartup
         
@@ -266,10 +199,10 @@ function Install-Script {
             -Principal $principal `
             -Settings $settings `
             -Description "Runs PSCloudInit configuration at Windows startup" | Out-Null
-    }
-    
-    Write-Host "`nInstallation complete!"
-    Write-Host "The script will run automatically at the next system startup."
+
+        Write-Verbose "Scheduled task created successfully"
+        Write-Host "  Installation complete. The script will run automatically at the next system startup.`n"
+    }    
 }
 
 function Get-UserDataConfig {
@@ -290,7 +223,7 @@ function Get-UserDataConfig {
     $userData = $null
     
     if (Test-Path $userDataPath) {
-        Write-Host "Found user-data at: $userDataPath"
+        Write-Verbose "Found user-data at: $userDataPath"
         $userData = Get-Content $userDataPath -Raw
         
         # Extract FQDN from user_data (format: fqdn: hostname.domain)
@@ -316,135 +249,6 @@ function Get-UserDataConfig {
     }
 }
 
-function Install-SshKeys {
-    <#
-    .SYNOPSIS
-        Process and install SSH public keys from user_data
-    .PARAMETER UserData
-        user-data content as string
-    #>
-    [CmdletBinding(SupportsShouldProcess = $true)]
-    param(
-        [Parameter(Mandatory = $true)]
-        [AllowNull()]
-        [string]$UserData
-    )
-    
-    Write-Host "`n--- Processing SSH keys ---"
-
-    if (-not $UserData -or $UserData -notmatch 'ssh_authorized_keys:') {
-        Write-Host "No ssh_authorized_keys in user_data"
-        return
-    }
-    
-    Write-Verbose "Parsing SSH keys from user_data"
-    
-    $sshDir = "C:\ProgramData\ssh"
-    $authorizedKeysPath = Join-Path $sshDir "administrators_authorized_keys"
-    
-    # Create SSH directory if it doesn't exist
-    if (-not (Test-Path $sshDir)) {
-        if ($PSCmdlet.ShouldProcess($sshDir, "Create SSH directory")) {
-            Write-Host "Creating SSH directory: $sshDir"
-            New-Item -Path $sshDir -ItemType Directory -Force | Out-Null
-        }
-    } else {
-        Write-Verbose "SSH directory already exists: $sshDir"
-    }
-    
-    # Extract SSH keys from user_data (YAML format)
-    $publicKeys = @()
-    $inKeysSection = $false
-    
-    foreach ($line in $UserData -split "`r?`n") {
-        if ($line -match 'ssh_authorized_keys:') {
-            $inKeysSection = $true
-            Write-Verbose "Found ssh_authorized_keys section"
-            continue
-        }
-        
-        if ($inKeysSection) {
-            # Check if still in the keys section (indented with - )
-            if ($line -match '^\s+-\s+(.+)$') {
-                $key = $matches[1].Trim()
-                Write-Verbose "Found SSH key: $($key.Substring(0, [Math]::Min(50, $key.Length)))..."
-                Write-Verbose "Full key: $key"
-                $publicKeys += $key
-            } elseif ($line -match '^\w+:') {
-                # New top-level key, exit keys section
-                Write-Verbose "Exiting ssh_authorized_keys section"
-                break
-            }
-        }
-    }
-    
-    if ($publicKeys.Count -gt 0) {
-        if ($PSCmdlet.ShouldProcess($authorizedKeysPath, "Install $($publicKeys.Count) SSH public key(s)")) {
-            Write-Host "Installing $($publicKeys.Count) SSH public key(s) to $authorizedKeysPath"
-            
-            # Write keys to file (overwrite if exists)
-            $publicKeys | Out-File -FilePath $authorizedKeysPath -Encoding ASCII -Force
-            
-            # Set proper permissions (only SYSTEM and Administrators should have access)
-            Write-Host "  Setting ACL permissions on authorized_keys file"
-            $acl = Get-Acl $authorizedKeysPath
-            $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance
-            
-            # Remove all existing rules
-            $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
-            
-            # Add SYSTEM with Full Control
-            $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                "NT AUTHORITY\SYSTEM", "FullControl", "Allow")
-            $acl.AddAccessRule($systemRule)
-            
-            # Add Administrators with Full Control
-            $adminRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                "BUILTIN\Administrators", "FullControl", "Allow")
-            $acl.AddAccessRule($adminRule)
-            
-            Set-Acl -Path $authorizedKeysPath -AclObject $acl
-            Write-Host "  SSH public keys installed successfully"
-        }
-    } else {
-        Write-Host "No public keys found in user_data"
-    }
-}
-
-function Get-MetaDataConfig {
-    <#
-    .SYNOPSIS
-        Parse meta-data file
-    .PARAMETER DriveLetter
-        Drive letter of the cloud-init drive
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$DriveLetter
-    )
-    
-    $metaDataPath = Join-Path $DriveLetter "meta-data"
-    
-    if (-not (Test-Path $metaDataPath)) {
-        Write-Warning "meta-data not found at $metaDataPath"
-        return $null
-    }
-    
-    Write-Host "Found meta-data at $metaDataPath..."
-    $metaDataContent = Get-Content $metaDataPath -Raw
-    $metaData = ConvertFrom-SimpleYaml -Content $metaDataContent
-    
-    if ($metaData.instance_id) {
-        Write-Verbose "  Instance ID: $($metaData.instance_id)"
-    }
-    if ($metaData.hostname) {
-        Write-Verbose "  Hostname: $($metaData.hostname)"
-    }
-    
-    return $metaData
-}
-
 function Get-NetworkConfig {
     <#
     .SYNOPSIS
@@ -464,7 +268,7 @@ function Get-NetworkConfig {
         throw "Network config not found at $networkConfigPath"
     }
     
-    Write-Host "Found network-config at $networkConfigPath..."
+    Write-Verbose "Found network-config at $networkConfigPath..."
     $networkConfigContent = Get-Content $networkConfigPath -Raw
     
     $interfaces = @()
@@ -660,7 +464,7 @@ function Set-NetworkInterface {
         [string]$SearchDomain
     )
     
-    Write-Host "`n--- Processing Interface: $($Interface.Name) / $($Interface.MacAddress) ---"
+    Write-Host "`nConfiguring interface: $($Interface.Name) / $($Interface.MacAddress)"
     Write-Verbose "Interface configuration: Name=$($Interface.Name), MAC=$($Interface.MacAddress), Subnets=$($Interface.Subnets.Count)"
     
     if ($Interface.Subnets.Count -eq 0) {
@@ -677,12 +481,18 @@ function Set-NetworkInterface {
         Write-Warning "No adapter found with MAC address $($Interface.MacAddress)"
         return
     }    
-    Write-Verbose "Matched Adapter: $($adapter.Name) (Index: $($adapter.InterfaceIndex), MAC: $($adapter.MacAddress), Status: $($adapter.Status))"
+    Write-Verbose "Found adapter $($adapter.Name) (Index: $($adapter.InterfaceIndex), MAC: $($adapter.MacAddress), Status: $($adapter.Status))"
     
-    # Rename adapter
-    if ($PSCmdlet.ShouldProcess($adapter.Name, "Rename adapter to $($Interface.Name)")) {
-        Write-Host "  Renaming adapter to $($Interface.Name)..."
-        Rename-NetAdapter -Name $adapter.Name -NewName $Interface.Name -ErrorAction Continue
+    if ($adapter.Name -ne $Interface.Name) {
+        Write-Verbose "  Adapter name '$($adapter.Name)' does not match expected name '$($Interface.Name)'"
+        # Rename adapter
+        if ($PSCmdlet.ShouldProcess($adapter.Name, "Rename adapter to $($Interface.Name)")) {
+            Write-Host "  Renaming adapter to $($Interface.Name)..."
+            Rename-NetAdapter -Name $adapter.Name -NewName $Interface.Name -ErrorAction Continue
+            Write-Verbose "Adapter renamed successfully"
+        }
+    } else {
+        Write-Host "  Adapter name '$($adapter.Name)' already matches expected name"
     }
     
     # Process each subnet configuration
@@ -694,39 +504,41 @@ function Set-NetworkInterface {
     $dns = if ($Nameservers.Count -gt 0) { $Nameservers } else { $Interface.DnsServers }
     
     if ($dns.Count -gt 0) {
-        if ($PSCmdlet.ShouldProcess($adapter.Name, "Configure DNS: $($dns -join ', ')")) {
-            # Check current DNS configuration
-            $currentDNS = (Get-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
-            $dnsChanged = $false
-            
-            Write-Verbose "Current DNS: $($currentDNS -join ', ')"
-            Write-Verbose "Desired DNS: $($dns -join ', ')"
-            
-            if ($currentDNS) {
-                # Compare DNS servers
-                if ($currentDNS.Count -ne $dns.Count) {
-                    $dnsChanged = $true
-                    Write-Verbose "DNS count different: current=$($currentDNS.Count), desired=$($dns.Count)"
-                } else {
-                    for ($i = 0; $i -lt $dns.Count; $i++) {
-                        if ($currentDNS[$i] -ne $dns[$i]) {
-                            $dnsChanged = $true
-                            Write-Verbose "DNS mismatch at position ${i}: current=$($currentDNS[$i]), desired=$($dns[$i])"
-                            break
-                        }
+        $joinedDns = $dns -join ', '
+        # Check current DNS configuration
+        $currentDNS = (Get-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
+        $dnsChanged = $false
+        
+        Write-Verbose "Current DNS: $($currentDNS -join ', ')"
+        Write-Verbose "Expected DNS: $joinedDns"
+        
+        if ($currentDNS) {
+            # Compare DNS servers
+            if ($currentDNS.Count -ne $dns.Count) {
+                $dnsChanged = $true
+                Write-Verbose "DNS count different: current=$($currentDNS.Count), expected=$($dns.Count)"
+            } else {
+                for ($i = 0; $i -lt $dns.Count; $i++) {
+                    if ($currentDNS[$i] -ne $dns[$i]) {
+                        $dnsChanged = $true
+                        Write-Verbose "DNS mismatch at position ${i}: current=$($currentDNS[$i]), expected=$($dns[$i])"
+                        break
                     }
                 }
-            } else {
-                $dnsChanged = $true
-                Write-Verbose "No current DNS configured"
             }
-            
-            if ($dnsChanged) {
-                Write-Host "Configuring DNS: $($dns -join ', ')"
+        } else {
+            $dnsChanged = $true
+            Write-Verbose "No current DNS configured"
+        }
+        
+        if ($dnsChanged) {
+            if ($PSCmdlet.ShouldProcess($adapter.Name, "Configure DNS: $joinedDns")) {
+                Write-Host "  Configuring DNS: $joinedDns"
                 Set-DnsClientServerAddress -InterfaceIndex $adapter.InterfaceIndex -ServerAddresses $dns
-            } else {
-                Write-Host "DNS already configured correctly"
+                Write-Verbose "DNS configured successfully"
             }
+        } else {
+            Write-Host "  DNS already configured: $joinedDns"
         }
     } else {
         Write-Verbose "No DNS servers to configure"
@@ -734,18 +546,18 @@ function Set-NetworkInterface {
     
     # Configure DNS search domain
     if ($SearchDomain) {
-        if ($PSCmdlet.ShouldProcess($adapter.Name, "Configure DNS search domain: $SearchDomain")) {
-            $currentSuffix = (Get-DnsClient -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue).ConnectionSpecificSuffix
-            Write-Verbose "Current DNS suffix: $currentSuffix"
-            Write-Verbose "Desired DNS suffix: $SearchDomain"
-            
-            if ($currentSuffix -ne $SearchDomain) {
-                Write-Host "Configuring DNS search domain: $SearchDomain"
+        $currentSuffix = (Get-DnsClient -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue).ConnectionSpecificSuffix
+        Write-Verbose "Current DNS suffix: $currentSuffix"
+        Write-Verbose "Expected DNS suffix: $SearchDomain"
+        
+        if ($currentSuffix -ne $SearchDomain) {
+            if ($PSCmdlet.ShouldProcess($adapter.Name, "Configure DNS search domain: $SearchDomain")) {
+                Write-Host "  Configuring DNS search domain: $SearchDomain"
                 Set-DnsClient -InterfaceIndex $adapter.InterfaceIndex -ConnectionSpecificSuffix $SearchDomain
-                Write-Host "DNS search domain configured successfully"
-            } else {
-                Write-Host "DNS search domain already configured correctly"
+                Write-Verbose "DNS search domain configured successfully"
             }
+        } else {
+            Write-Host "  DNS search domain already configured: $SearchDomain"
         }
     } else {
         Write-Verbose "No DNS search domain to configure"
@@ -781,41 +593,41 @@ function Set-SubnetConfiguration {
         }
         
         'dhcp' {
-            if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable DHCP for IPv4")) {
-                Write-Host "  Enabling DHCP for IPv4..."
-                $dhcpStatus = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
-                if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
-                    Write-Host "  DHCPv4 already enabled"
-                } else {
+            $dhcpStatus = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
+            if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
+                Write-Host "  DHCPv4 already enabled"
+            } else {
+                if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable DHCP for IPv4")) {
+                    Write-Host "  Enabling DHCP for IPv4..."
                     Set-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -Dhcp Enabled -AddressFamily IPv4
-                    Write-Host "  DHCPv4 enabled"
+                    Write-Verbose "DHCPv4 enabled successfully"                    
                 }
             }
         }
         
         'dhcp6' {
-            if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable DHCP for IPv6")) {
-                Write-Host "  Enabling DHCP for IPv6..."
-                $dhcpStatus = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
-                if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
-                    Write-Host "  DHCPv6 already enabled"
-                } else {
+            $dhcpStatus = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
+            if ($dhcpStatus -and $dhcpStatus.Dhcp -eq 'Enabled') {
+                Write-Host "  DHCPv6 already enabled"
+            } else {
+                if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable DHCP for IPv6")) {
+                    Write-Host "  Enabling DHCP for IPv6..."
                     Set-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -Dhcp Enabled -AddressFamily IPv6
-                    Write-Host "  DHCPv6 enabled"
+                    Write-Verbose "DHCPv6 enabled successfully"                    
                 }
             }
         }
         
         'ipv6_slaac' {
-            if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable IPv6 SLAAC")) {
-                Write-Host "  Enabling IPv6 SLAAC (Stateless Address Autoconfiguration)..."
-                $routerDiscovery = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
-                if ($routerDiscovery) {
-                    if ($routerDiscovery.RouterDiscovery -ne 'Enabled') {
+            $routerDiscovery = Get-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue
+            if ($routerDiscovery) {
+                if ($routerDiscovery.RouterDiscovery -eq 'Enabled') {
+                    Write-Host "  IPv6 SLAAC already enabled"
+                } else {
+                    if ($PSCmdlet.ShouldProcess($adapter.Name, "Enable IPv6 SLAAC")) {
+                        Write-Host "  Enabling IPv6 SLAAC (Stateless Address Autoconfiguration)..."
                         Set-NetIPInterface -InterfaceIndex $Adapter.InterfaceIndex -AddressFamily IPv6 -RouterDiscovery Enabled
-                        Write-Host "  IPv6 router discovery enabled"
-                    } else {
-                        Write-Host "  IPv6 SLAAC already enabled"
+                        Write-Verbose "IPv6 SLAAC enabled successfully"                        
                     }
                 }
             }
@@ -912,7 +724,7 @@ function Set-StaticIpConfiguration {
 
     # Check if this IP is already configured
     if ($existingIP) {
-        Write-Verbose "  IP address $ip already configured, skipping"
+        Write-Host "  IP address already configured: $ip"
 
         if ($additionalIPs) {
             Write-Warning "  Additional IP addresses found on interface:"
@@ -993,34 +805,125 @@ function Set-StaticIpConfiguration {
     Write-Host "  IP configuration applied successfully"
 }
 
+function Install-SshKeys {
+    <#
+    .SYNOPSIS
+        Process and install SSH public keys from user_data
+    .PARAMETER UserData
+        user-data content as string
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [string]$UserData
+    )
+    
+    Write-Host "`nConfiguring SSH keys"
+
+    if (-not $UserData -or $UserData -notmatch 'ssh_authorized_keys:') {
+        Write-Host "No ssh_authorized_keys in user_data"
+        return
+    }
+    
+    Write-Verbose "Parsing SSH keys from user_data"
+    
+    $sshDir = "C:\ProgramData\ssh"
+    $authorizedKeysPath = Join-Path $sshDir "administrators_authorized_keys"
+    
+    # Create SSH directory if it doesn't exist
+    if (-not (Test-Path $sshDir)) {
+        if ($PSCmdlet.ShouldProcess($sshDir, "Create SSH directory")) {
+            Write-Host "Creating SSH directory: $sshDir"
+            New-Item -Path $sshDir -ItemType Directory -Force | Out-Null
+        }
+    } else {
+        Write-Verbose "SSH directory already exists: $sshDir"
+    }
+    
+    # Extract SSH keys from user_data (YAML format)
+    $publicKeys = @()
+    $inKeysSection = $false
+    
+    foreach ($line in $UserData -split "`r?`n") {
+        if ($line -match 'ssh_authorized_keys:') {
+            $inKeysSection = $true
+            Write-Verbose "Found ssh_authorized_keys section"
+            continue
+        }
+        
+        if ($inKeysSection) {
+            # Check if still in the keys section (indented with - )
+            if ($line -match '^\s+-\s+(.+)$') {
+                $key = $matches[1].Trim()
+                Write-Verbose "Found SSH key: $($key.Substring(0, [Math]::Min(50, $key.Length)))..."
+                Write-Verbose "Full key: $key"
+                $publicKeys += $key
+            } elseif ($line -match '^\w+:') {
+                # New top-level key, exit keys section
+                Write-Verbose "Exiting ssh_authorized_keys section"
+                break
+            }
+        }
+    }
+    
+    if ($publicKeys.Count -gt 0) {
+        if ($PSCmdlet.ShouldProcess($authorizedKeysPath, "Install $($publicKeys.Count) SSH public key(s)")) {
+            Write-Host "  Installing $($publicKeys.Count) SSH public key(s) to $authorizedKeysPath"
+            
+            # Write keys to file (overwrite if exists)
+            $publicKeys | Out-File -FilePath $authorizedKeysPath -Encoding ASCII -Force
+            
+            # Set proper permissions (only SYSTEM and Administrators should have access)
+            Write-Host "  Setting ACL permissions on authorized_keys file"
+            $acl = Get-Acl $authorizedKeysPath
+            $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance
+            
+            # Remove all existing rules
+            $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) | Out-Null }
+            
+            # Add SYSTEM with Full Control
+            $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                "NT AUTHORITY\SYSTEM", "FullControl", "Allow")
+            $acl.AddAccessRule($systemRule)
+            
+            # Add Administrators with Full Control
+            $adminRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                "BUILTIN\Administrators", "FullControl", "Allow")
+            $acl.AddAccessRule($adminRule)
+            
+            Set-Acl -Path $authorizedKeysPath -AclObject $acl
+            Write-Host "  SSH public keys installed successfully"
+        }
+    } else {
+        Write-Host "No public keys found in user_data"
+    }
+}
+
 #endregion Functions
 
 #region Main Script
-
-# Handle Install parameter
-if ($Install) {
-    Install-Script
-}
 
 # Setup logging
 $LogPath = "C:\Windows\Panther\PSCloudInit.log"
 Start-Transcript -Path $LogPath -Append
 $ErrorActionPreference = "Stop"
 
+# Handle Install parameter
+if ($Install) {
+    Install-Script
+}
+
 try {
     Write-Host "Starting PSCloudInit configuration..."
     Write-Verbose "Script started at: $(Get-Date)"
-    Write-Verbose "Parameters: SecondsForCloudInitDrive=$SecondsForCloudInitDrive"
     
     # Wait for cloud-init drive
-    $driveLetter = Wait-CloudInitDrive -Seconds $SecondsForCloudInitDrive
+    $driveLetter = Wait-CloudInitDrive
     
     # Parse user-data
     $userDataConfig = Get-UserDataConfig -DriveLetter $driveLetter
     $searchDomain = $userDataConfig.SearchDomain
-    
-    # Process meta-data
-    $metaData = Get-MetaDataConfig -DriveLetter $driveLetter
     
     # Parse network configuration
     $networkConfig = Get-NetworkConfig -DriveLetter $driveLetter
