@@ -177,7 +177,7 @@ function Install-Script {
 
         $action = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
-            -Argument "-ExecutionPolicy Bypass -File `"$targetFile`" -Verbose"
+            -Argument "-ExecutionPolicy Bypass -File `"$targetFile`""
 
         $trigger = New-ScheduledTaskTrigger -AtStartup
 
