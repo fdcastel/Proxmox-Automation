@@ -42,6 +42,7 @@ function show_usage() {
     echo_err '    --privileged        Makes the container run as privileged user (default = unprivileged).'
     echo_err "    --bridge            Use bridge for container networking (default = $DEFAULT_BRIDGE)."
     echo_err "    --hwaddr            MAC address for eth0 interface."
+    echo_err "    --vlan              VLAN tag for eth0 interface."
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err '    --no-start          Do not start the container after creation.'
     echo_err "    --help, -h          Display this help message."
@@ -67,6 +68,7 @@ CT_ROOTFS=$DEFAULT_ROOTFS
 CT_UNPRIVILEGED=1
 CT_BRIDGE=$DEFAULT_BRIDGE
 CT_HWADDR=
+CT_VLAN=
 CT_INSTALL_DOCKER=0
 CT_NO_START=0
 
@@ -84,6 +86,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --rootfs) CT_ROOTFS="$2"; shift; shift;;
     --bridge) CT_BRIDGE="$2"; shift; shift;;
     --hwaddr) CT_HWADDR="$2"; shift; shift;;
+    --vlan) CT_VLAN="$2"; shift; shift;;
     --privileged) CT_UNPRIVILEGED=0; shift;;
 
     --install-docker) CT_INSTALL_DOCKER=1; shift;;
@@ -131,6 +134,9 @@ CT_INTERFACE_NAME='eth0'
 NET0_EXTRA_ARGS=
 if [ -n "$CT_HWADDR" ]; then
     NET0_EXTRA_ARGS=",hwaddr=$CT_HWADDR"
+fi;
+if [ -n "$CT_VLAN" ]; then
+    NET0_EXTRA_ARGS="$NET0_EXTRA_ARGS,tag=$CT_VLAN"
 fi;
 
 # Create CT

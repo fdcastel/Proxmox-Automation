@@ -173,6 +173,7 @@ Additional options:
     --privileged        Makes the container run as privileged user (default = unprivileged).
     --bridge            Use bridge for container networking (default = vmbr0).
     --hwaddr            MAC address for eth0 interface.
+    --vlan              VLAN tag ID for the network interface.
     --install-docker    Install docker and docker-compose.
     --no-start          Do not start the container after creation.
     --help, -h          Display this help message.
