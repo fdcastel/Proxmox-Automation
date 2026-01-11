@@ -45,6 +45,7 @@ function show_usage() {
     echo_err "    --disksize          Size of VM main disk (default = $DEFAULT_DISKSIZE)."
     echo_err "    --image-index       Windows image index to install (default = $DEFAULT_IMAGE_INDEX)."
     echo_err "    --virtio-iso        Path to VirtIO drivers ISO (default = $VIRTIO_ISO)."
+    echo_err "    --vlan              VLAN tag ID for the network interface."
     echo_err "    --no-start          Do not start the VM after creation."
     echo_err "    --no-guest          Do not wait for QEMU Guest Agent after start."
     echo_err "    --help, -h          Display this help message."
@@ -79,6 +80,7 @@ VM_STORAGE=$DEFAULT_STORAGE
 VM_DISKSIZE=$DEFAULT_DISKSIZE
 VM_IMAGE_INDEX=$DEFAULT_IMAGE_INDEX
 VM_VIRTIO_ISO=$VIRTIO_ISO
+VM_VLAN=
 VM_NO_START=0
 VM_NO_GUEST=0
 
@@ -96,6 +98,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --disksize) VM_DISKSIZE="$2"; shift; shift;;
     --image-index) VM_IMAGE_INDEX="$2"; shift; shift;;
     --virtio-iso) VM_VIRTIO_ISO="$2"; shift; shift;;
+    --vlan) VM_VLAN="$2"; shift; shift;;
 
     --no-start) VM_NO_START=1; shift;;
     --no-guest) VM_NO_GUEST=1; shift;;
@@ -338,6 +341,12 @@ VM_BALLOON=0
 #   ide1    VirtIO ISO        F
 #   ide2    Unattended ISO    E
 #   ide3    cloud-init drive  G
+
+NET0_ARGS="virtio,bridge=vmbr0"
+if [ -n "$VM_VLAN" ]; then
+    NET0_ARGS="$NET0_ARGS,tag=$VM_VLAN"
+fi
+
 echo_err "Creating VM $VM_ID..."
 qm create $VM_ID --name $VM_NAME \
     --cpu host \
@@ -346,7 +355,7 @@ qm create $VM_ID --name $VM_NAME \
     --agent 1 \
     --bios ovmf \
     --machine q35 \
-    --net0 virtio,bridge=vmbr0 \
+    --net0 $NET0_ARGS \
     --cores $VM_CORES \
     --numa 1 \
     --memory $VM_MEMORY \

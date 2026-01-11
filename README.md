@@ -299,6 +299,7 @@ Additional options:
     --memory            Amount of RAM for the VM in MB (default = 2048).
     --disksize          Size of VM main disk (default = 120G).
     --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.
+    --vlan              VLAN tag ID for the network interface.
     --install-docker    Install docker and docker-compose.
     --help, -h          Display this help message.
 ```
@@ -352,6 +353,7 @@ Additional options:
     --disksize          Size of VM main disk (default = 120G).
     --image-index       Windows image index to install (default = 1).
     --virtio-iso        Path to VirtIO drivers ISO (default = /var/lib/vz/template/iso/virtio-win.iso).
+    --vlan              VLAN tag ID for the network interface.
     --no-start          Do not start the VM after creation.
     --no-guest          Do not wait for QEMU Guest Agent after start.
     --help, -h          Display this help message.
