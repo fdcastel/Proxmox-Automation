@@ -43,6 +43,7 @@ function show_usage() {
     echo_err "    --storage           Storage to use for VM disks (default = $DEFAULT_STORAGE)."
     echo_err "    --disksize          Size of VM main disk (default = $DEFAULT_DISKSIZE)."
     echo_err '    --balloon           Amount of target RAM for the VM in MB. Using zero (default) disables the ballon driver.'
+    echo_err "    --hwaddr            MAC address for the network interface."
     echo_err "    --vlan              VLAN tag ID for the network interface."
     echo_err '    --install-docker    Install docker and docker-compose.'
     echo_err "    --no-start          Do not start the VM after creation."
@@ -69,6 +70,7 @@ VM_MEMORY=$DEFAULT_MEMORY
 VM_STORAGE=$DEFAULT_STORAGE
 VM_DISKSIZE=$DEFAULT_DISKSIZE
 VM_BALLOON=0
+VM_HWADDR=
 VM_VLAN=
 VM_INSTALL_DOCKER=0
 VM_NO_START=0
@@ -88,6 +90,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     --storage) VM_STORAGE="$2"; shift; shift;;
     --disksize) VM_DISKSIZE="$2"; shift; shift;;
     --balloon) VM_BALLOON="$2"; shift; shift;;
+    --hwaddr) VM_HWADDR="$2"; shift; shift;;
     --vlan) VM_VLAN="$2"; shift; shift;;
     --install-docker) VM_INSTALL_DOCKER=1; shift;;
 
@@ -113,6 +116,9 @@ if [ -z "$VM_CIPASSWORD" ] && [ -z "$VM_SSHKEYS" ]; then show_usage "You must in
 #   Disk 2: cloud-init (Do not use --ide or Debian 'genericcloud' image will not work.)
 
 NET0_ARGS="virtio,bridge=vmbr0"
+if [ -n "$VM_HWADDR" ]; then
+    NET0_ARGS="$NET0_ARGS,macaddr=$VM_HWADDR"
+fi
 if [ -n "$VM_VLAN" ]; then
     NET0_ARGS="$NET0_ARGS,tag=$VM_VLAN"
 fi
