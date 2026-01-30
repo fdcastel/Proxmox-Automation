@@ -139,13 +139,28 @@ if [ -n "$CT_VLAN" ]; then
     NET0_EXTRA_ARGS="$NET0_EXTRA_ARGS,tag=$CT_VLAN"
 fi;
 
+# Check if --net0 is provided in additional arguments
+NET0_PROVIDED=0
+for arg in "$@"; do
+    if [[ "$arg" == "--net0" ]]; then
+        NET0_PROVIDED=1
+        break
+    fi
+done
+
+# Build default --net0 only if not provided by user
+NET0_ARGS=
+if [ $NET0_PROVIDED -eq 0 ]; then
+    NET0_ARGS="--net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp$NET0_EXTRA_ARGS"
+fi
+
 # Create CT
 pct create $CT_ID $CT_OSTEMPLATE \
     --ostype $CT_OSTYPE \
     --cmode shell \
     --hostname $CT_HOSTNAME \
     --rootfs $CT_ROOTFS \
-    --net0 name=$CT_INTERFACE_NAME,bridge=$CT_BRIDGE,ip=dhcp$NET0_EXTRA_ARGS \
+    $NET0_ARGS \
     $CORES_ARGS \
     --memory $CT_MEMORY \
     --onboot 1 \
