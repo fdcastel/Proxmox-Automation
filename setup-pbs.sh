@@ -14,3 +14,13 @@ Suites: trixie
 Components: pbs-no-subscription
 Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
+
+# Heads-up: the proxmox-backup-server package re-ships pbs-enterprise.sources during
+# `apt-get install` / dist-upgrade, after which `apt-get update` returns 401 from
+# enterprise.proxmox.com until the file is removed again. This script is idempotent,
+# so the fix is simply to re-run it after installing or upgrading PBS.
+if ! dpkg-query -W -f='${Status}' proxmox-backup-server 2>/dev/null | grep -q 'install ok installed'; then
+    echo "NOTE: proxmox-backup-server is not installed yet. After 'apt-get install proxmox-backup-server',"
+    echo "      re-run this script -- the package re-ships pbs-enterprise.sources and 'apt-get update'"
+    echo "      will fail with 401 Unauthorized until you do."
+fi

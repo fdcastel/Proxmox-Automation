@@ -25,3 +25,13 @@ Suites: trixie
 Components: pve-no-subscription
 Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
+
+# Heads-up: PVE/Ceph packages may re-ship pve-enterprise.sources / ceph.sources during
+# `apt-get install` or dist-upgrade, after which `apt-get update` returns 401 from
+# enterprise.proxmox.com until the file is removed again. This script is idempotent,
+# so the fix is simply to re-run it after installing or upgrading PVE.
+if ! dpkg-query -W -f='${Status}' proxmox-ve 2>/dev/null | grep -q 'install ok installed'; then
+    echo "NOTE: proxmox-ve is not installed yet. After 'apt-get install proxmox-ve' (or any future"
+    echo "      dist-upgrade), re-run this script -- packages can re-ship pve-enterprise.sources"
+    echo "      and 'apt-get update' will fail with 401 Unauthorized until you do."
+fi
