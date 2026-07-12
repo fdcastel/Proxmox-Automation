@@ -33,6 +33,7 @@ This will download and execute [bootstrap.sh](bootstrap.sh). It will also instal
   - [import-vm-windows](#import-vm-windows)
   - [remove-windows-iso-prompt](#remove-windows-iso-prompt)
   - [remove-nag-subscription](#remove-nag-subscription)
+  - [setup-notifications](#setup-notifications)
   - [setup-pbs](#setup-pbs)
   - [setup-pve](#setup-pve)
 
@@ -492,6 +493,46 @@ Usage: ./remove-nag-subscription.sh
 ```
 
 Removes Proxmox VE / Proxmox Backup Server nag dialog from web UI.
+
+
+
+## setup-notifications
+
+```
+Usage: ./setup-notifications.sh --region <region> --smtp-user <user> --smtp-password <pw> --from <email> --to <email> [OPTIONS]
+    --region            AWS SES region. Builds email-smtp.<region>.amazonaws.com.
+    --smtp-user         SES SMTP username (SES console > SMTP settings). NOT an AWS access key.
+    --smtp-password     SES SMTP password.
+    --from              Sender address. Must be a verified SES identity.
+    --to                Recipient for host notifications (sets the root alias).
+
+Additional options:
+    --smtp-host         Override the SMTP endpoint (default = email-smtp.<region>.amazonaws.com).
+    --smtp-port         SMTP submission port (default = 587).
+    --ipv4-only         Force Postfix to IPv4 (for hosts without working IPv6).
+    --no-flush          Do not flush the deferred mail queue after configuring.
+    --no-test           Do not send a test message at the end.
+    --help, -h          Display this help message.
+```
+
+Configures a Proxmox host to deliver system notifications through [Amazon SES](https://aws.amazon.com/ses/).
+
+By default, a fresh Proxmox install cannot deliver these alerts: Postfix tries to reach the recipient's mail server on port 25 directly (usually blocked), and `root` — the address ZFS Event Daemon (ZED) and `smartd` mail — is not aliased to a real mailbox, so those alerts never leave the host. This script points Postfix at an authenticated SES smarthost, rewrites the sender to your verified SES identity, aliases `root` to `--to`, enables ZED and `smartd` mail, and flushes any backlog.
+
+The `--smtp-user` / `--smtp-password` are **SES SMTP credentials** generated in the SES console under *SMTP settings > Create SMTP credentials* — they are NOT your AWS access key id / secret. The `--from` address must be a verified SES identity in that region. On hosts without working IPv6, add `--ipv4-only`.
+
+This script is idempotent and safe to re-run.
+
+### Example
+
+```bash
+./setup-notifications.sh \
+    --region us-east-1 \
+    --smtp-user AKIAEXAMPLE... \
+    --smtp-password 'your-ses-smtp-password' \
+    --from noreply@example.com \
+    --to admin@example.com
+```
 
 
 
